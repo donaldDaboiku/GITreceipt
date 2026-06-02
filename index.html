@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Estate Receipt Manager</title>
+
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <header>
+      <button class="hamburger" id="hamburgerBtn">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="brand">
+        <h1>Estate Receipt Manager</h1>
+
+        <small> Offline Receipt System </small>
+      </div>
+    </header>
+
+    <aside class="sidebar" id="sidebar">
+      <nav class="nav-menu">
+        <a href="#dashboard" class="nav-item" data-section="dashboard">📊 Dashboard</a>
+        <a href="#receipt" class="nav-item" data-section="receipt">📝 Create Receipt</a>
+        <a href="#viewReceipt" class="nav-item" data-section="viewReceipt">📄 View Receipt</a>
+        <a href="#search" class="nav-item" data-section="search">🔍 Search</a>
+        <a href="#estates" class="nav-item" data-section="estates">🏢 Estates</a>
+        <a href="#history" class="nav-item" data-section="history">📋 History</a>
+        <a href="#backup" class="nav-item" data-section="backup">💾 Backup</a>
+        <a href="#settings" class="nav-item" data-section="settings">⚙️ Settings</a>
+      </nav>
+    </aside>
+
+    <main>
+      <!-- Dashboard Section -->
+      <section id="dashboard" class="page-section">
+        <section class="card">
+          <h2>Dashboard</h2>
+
+          <div class="stats">
+            <div class="stat-box">
+              <span id="totalReceipts"> 0 </span>
+
+              <small> Receipts </small>
+            </div>
+
+            <div class="stat-box">
+              <span id="totalAmount"> ₦0 </span>
+
+              <small> Collections </small>
+            </div>
+          </div>
+
+          <button id="createReceiptBtn" style="width: 100%; margin-top: 15px; background: #16a34a; font-size: 16px;">
+            + Create Receipt
+          </button>
+        </section>
+
+        <!-- Estates Overview -->
+        <section class="card">
+          <h2>Estates Overview</h2>
+          <div id="estatesContainer"></div>
+        </section>
+
+        <!-- Receipt History -->
+        <section class="card">
+          <h2>Receipt History</h2>
+
+          <div id="receiptList"></div>
+        </section>
+      </section>
+
+      <!-- Receipt Section -->
+      <section id="receipt" class="page-section hidden">
+        <section class="card">
+          <h2>Create Receipt</h2>
+
+          <form id="receiptForm">
+            <input type="text" id="payer" placeholder="Payer Name" required />
+
+            <input type="text" id="payerPhone" placeholder="Phone Number" />
+
+            <input type="text" id="unit" placeholder="Property / Shop / Flat" />
+
+            <select id="paymentType">
+              <option value="Rent">Rent</option>
+
+              <option value="Service Charge">Service Charge</option>
+
+              <option value="Maintenance">Maintenance</option>
+
+              <option value="Utility">Utility</option>
+
+              <option value="Other">Other</option>
+            </select>
+
+            <input type="number" id="amount" placeholder="Amount" required />
+
+            <select id="paymentMethod">
+              <option>Cash</option>
+
+              <option>Transfer</option>
+
+              <option>POS</option>
+            </select>
+
+            <textarea id="remarks" placeholder="Remarks"></textarea>
+
+            <button type="submit">Save Receipt</button>
+          </form>
+        </section>
+      </section>
+
+      <!-- Receipt Preview Section -->
+      <section id="viewReceipt" class="page-section hidden">
+        <section id="receiptPreview" class="card"></section>
+      </section>
+
+      <!-- Search Section -->
+      <section id="search" class="page-section hidden">
+        <section class="card">
+          <h2>Search Receipt</h2>
+
+          <input type="text" id="searchBox" placeholder="Receipt Number" />
+
+          <button id="searchBtn">Search</button>
+        </section>
+      </section>
+
+      <!-- Estates Section -->
+      <section id="estates" class="page-section hidden">
+        <section class="card">
+          <h2>Manage Properties/Estates</h2>
+          
+          <!-- Add New Estate Form -->
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0;">Add New Property</h3>
+            <div style="display: grid; gap: 10px;">
+              <input type="text" id="estateNameInput" placeholder="Property Name (e.g., Block A, Flat 5, Shop 2)" required />
+              <input type="text" id="estateLocationInput" placeholder="Location/Address" />
+              <div style="display: flex; gap: 10px;">
+                <button id="addEstateBtn" style="flex: 1; background: #16a34a;">Add Property</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estates List -->
+          <h3>Properties List</h3>
+          <div id="estatesListContainer"></div>
+        </section>
+      </section>
+
+      <!-- History Section -->
+      <section id="history" class="page-section hidden">
+        <section class="card">
+          <h2>Receipt History</h2>
+
+          <div id="historyDetailList"></div>
+        </section>
+      </section>
+
+      <!-- Backup Section -->
+      <section id="backup" class="page-section hidden">
+        <section class="card">
+          <h2>Backup & Restore</h2>
+
+          <button id="exportBtn">Export Backup</button>
+
+          <input type="file" id="importFile" />
+        </section>
+      </section>
+
+      <!-- Settings Section -->
+      <section id="settings" class="page-section hidden">
+        <div class="settings-container">
+          <h2>Business Settings</h2>
+
+          <label>Business Name</label>
+          <input type="text" id="businessName" />
+
+          <label>Address</label>
+          <textarea id="address"></textarea>
+
+          <label>Phone</label>
+          <input type="text" id="phone" />
+
+          <label>Email</label>
+          <input type="email" id="email" />
+
+          <label>Receipt Prefix</label>
+          <input type="text" id="prefix" placeholder="EST" />
+
+          <label>Currency Symbol</label>
+          <input type="text" id="currency" value="₦" />
+
+          <label>Footer Message</label>
+          <input type="text" id="footer" />
+
+          <label>Upload Logo</label>
+          <input type="file" id="logoUpload" accept="image/*" />
+
+          <div class="logo-preview">
+            <img id="logoPreview" width="120" />
+          </div>
+
+          <button onclick="saveSettings()">Save Settings</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
