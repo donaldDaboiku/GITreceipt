@@ -493,6 +493,7 @@ document.addEventListener("DOMContentLoaded", function () {
         unitSelect.innerHTML = '<option value="">Select Unit</option>';
 
         const estate = estates.find((e) => e.id === estateId);
+          
         if (!estate || !estate.units) return;
 
         estate.units.forEach((unit) => {
