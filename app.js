@@ -24,6 +24,7 @@ let settings = {
 };
 
 let estates = [];
+let editingEstateId = null;
 
 // Load settings on page start
 window.onload = function () {
@@ -66,7 +67,11 @@ function loadSettings() {
 }
 
 function saveEstate(estate) {
-  estates.push({ id: Date.now(), name: estate.name, location: estate.location || "" });
+  estates.push({
+    id: Date.now(),
+    name: estate.name,
+    location: estate.location || "",
+  });
   localStorage.setItem("estates", JSON.stringify(estates));
   updateEstateDropdown();
 }
@@ -88,11 +93,21 @@ function deleteEstate(id) {
   loadEstatesDetail();
   updateEstateDropdown();
 }
+function editEstate(id) {
+  const estate = estate.find((e) => e.id === id);
+  if (!estate) return;
+
+  editingEstateId = id;
+
+  document.getElementById("estateNameInput").value = estate.name;
+  document.getElementById("estateLocationInput").value = estate.location || "";
+  document.getElementById("addEstateBtn").textContent = "Update Property";
+}
 
 function updateEstateDropdown() {
   const unitSelect = document.getElementById("unit");
   if (!unitSelect) return;
-  
+
   unitSelect.innerHTML = '<option value="">Select Property</option>';
   estates.forEach((e) => {
     const option = document.createElement("option");
@@ -147,7 +162,7 @@ async function createReceipt(e) {
   document.getElementById("receiptForm").reset();
   loadHistory();
   loadDashboard();
-  
+
   // Navigate to receipt preview page
   showSection("viewReceipt");
 }
@@ -161,7 +176,7 @@ function escapeHtml(text) {
 function showReceipt(r, containerId = "receiptPreview") {
   const preview = document.getElementById(containerId);
   if (!preview) return;
-  
+
   preview.classList.remove("hidden");
 
   preview.innerHTML = `
@@ -207,12 +222,16 @@ function showReceipt(r, containerId = "receiptPreview") {
                 <span>${escapeHtml(r.date)}</span>
             </div>
             
-            ${r.remarks ? `
+            ${
+              r.remarks
+                ? `
             <div class="receipt-row">
                 <label>Remarks</label>
                 <span>${escapeHtml(r.remarks)}</span>
             </div>
-            ` : ''}
+            `
+                : ""
+            }
         </div>
         
         <div class="receipt-card-signature">
@@ -230,7 +249,7 @@ function showReceipt(r, containerId = "receiptPreview") {
 async function loadHistory() {
   receipts = await getAllReceipts();
   const list = document.getElementById("receiptList");
-  
+
   if (receipts.length === 0) {
     list.innerHTML = "<p>No receipts found</p>";
     return;
@@ -300,13 +319,13 @@ async function loadDashboard() {
   document.getElementById("totalReceipts").textContent = totalReceipts;
   document.getElementById("totalAmount").textContent =
     "₦" + Math.max(0, totalAmount).toLocaleString();
-  
+
   loadEstatesOverview(data);
 }
 
 async function loadEstatesOverview(data) {
   const estatesMap = {};
-  
+
   data.forEach((r) => {
     const unit = r.unit || "Unassigned";
     if (!estatesMap[unit]) {
@@ -315,17 +334,19 @@ async function loadEstatesOverview(data) {
     estatesMap[unit].count += 1;
     estatesMap[unit].total += r.amount;
   });
-  
-  const estatesList = Object.values(estatesMap).sort((a, b) => b.total - a.total);
+
+  const estatesList = Object.values(estatesMap).sort(
+    (a, b) => b.total - a.total,
+  );
   const container = document.getElementById("estatesContainer");
-  
+
   if (!container) return;
-  
+
   if (estatesList.length === 0) {
     container.innerHTML = "<p>No estate data</p>";
     return;
   }
-  
+
   let html = "<div style='display: grid; gap: 10px;'>";
   estatesList.forEach((estate) => {
     html += `
@@ -370,7 +391,7 @@ async function importBackup(e) {
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-    
+
     if (!Array.isArray(data)) {
       alert("Invalid backup file format");
       return;
@@ -390,8 +411,11 @@ async function importBackup(e) {
 
 function registerSW() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./service-worker.js")
-      .catch(error => console.error("Service Worker registration failed:", error));
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .catch((error) =>
+        console.error("Service Worker registration failed:", error),
+      );
   }
 }
 
@@ -414,7 +438,7 @@ document.addEventListener("DOMContentLoaded", function () {
     logoUpload.addEventListener("change", function (e) {
       const file = e.target.files[0];
       if (!file) return;
-      
+
       const reader = new FileReader();
       reader.onload = function () {
         settings.logo = reader.result;
@@ -435,18 +459,42 @@ document.addEventListener("DOMContentLoaded", function () {
   if (addEstateBtn) {
     addEstateBtn.addEventListener("click", function () {
       const name = document.getElementById("estateNameInput").value.trim();
-      const location = document.getElementById("estateLocationInput").value.trim();
-      
+      const location = document
+        .getElementById("estateLocationInput")
+        .value.trim();
+
       if (!name) {
         alert("Property name is required");
         return;
       }
-      
+
       saveEstate({ name, location });
+      if (editingEstateId) {
+        const estate = estates.find((e) => e.id === editingEstateId);
+
+        if (estate) {
+          estate.name = name;
+          estate.location = location;
+        }
+
+        localStorage.setItem("estates", JSON.stringify(estates));
+
+        editingEstateId = null;
+
+        document.getElementById("addEstateBtn").textContent = "Add Property";
+
+        alert("Property updated successfully!");
+      } else {
+        saveEstate({ name, location });
+
+        alert("Property added successfully!");
+      }
+
       document.getElementById("estateNameInput").value = "";
       document.getElementById("estateLocationInput").value = "";
+
       loadEstatesDetail();
-      alert("Property added successfully!");
+      updateEstateDropdown();
     });
   }
 
@@ -481,11 +529,11 @@ document.addEventListener("DOMContentLoaded", function () {
         e.preventDefault();
         hamburgerBtn.classList.remove("active");
         sidebar.classList.remove("active");
-        
+
         // Get section from data attribute
         const section = this.getAttribute("data-section");
         showSection(section);
-        
+
         // Update active nav item
         navItems.forEach((nav) => nav.classList.remove("active"));
         this.classList.add("active");
@@ -521,7 +569,7 @@ function showSection(sectionId) {
   const targetSection = document.getElementById(sectionId);
   if (targetSection) {
     targetSection.classList.remove("hidden");
-    
+
     // Load section-specific data
     if (sectionId === "estates") {
       loadEstatesDetail();
@@ -533,23 +581,28 @@ function showSection(sectionId) {
 
 async function loadEstatesDetail() {
   const container = document.getElementById("estatesListContainer");
-  
+
   if (!container) return;
-  
+
   if (estates.length === 0) {
-    container.innerHTML = "<p style='text-align: center; color: #666;'>No properties added yet. Add one above to get started.</p>";
+    container.innerHTML =
+      "<p style='text-align: center; color: #666;'>No properties added yet. Add one above to get started.</p>";
     return;
   }
-  
+
   let html = "<div style='display: grid; gap: 10px;'>";
   estates.forEach((estate) => {
     html += `
-      <div style='background: #f0f4f8; padding: 15px; border-radius: 8px; border-left: 4px solid #0f172a; display: flex; justify-content: space-between; align-items: center;'>
-        <div>
-          <strong style='font-size: 16px;'>${escapeHtml(estate.name)}</strong>
-          ${estate.location ? `<br><small style='color: #666;'>${escapeHtml(estate.location)}</small>` : ''}
+      <div class="estate-item" style='background: #f0f4f8; padding: 15px; border-radius: 8px; border-left: 4px solid #0f172a; display: flex; justify-content: space-between; align-items: center;'>
+        <div class="estate-info">
+        <h3>${escapeHtml(estate.name)}</h3>
+        ${estate.location ? `<p>${escapeHtml(estate.location)}</p>` : ""}
         </div>
-        <button class="delete-btn" onclick="deleteEstate(${estate.id})">Delete</button>
+        <div class="estate-actions">
+          <button class="edit-btn" onclick="editEstate(${estate.id})">Edit</button>
+          <button class="delete-btn" onclick="deleteEstate(${estate.id})">Delete</button>
+        </div>
+          
       </div>
     `;
   });
@@ -560,7 +613,7 @@ async function loadEstatesDetail() {
 async function loadHistoryDetail() {
   const data = await getAllReceipts();
   const list = document.getElementById("historyDetailList");
-  
+
   if (data.length === 0) {
     list.innerHTML = "<p>No receipts found</p>";
     return;
