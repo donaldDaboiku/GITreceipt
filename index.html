@@ -26,14 +26,26 @@
 
     <aside class="sidebar" id="sidebar">
       <nav class="nav-menu">
-        <a href="#dashboard" class="nav-item" data-section="dashboard">📊 Dashboard</a>
-        <a href="#receipt" class="nav-item" data-section="receipt">📝 Create Receipt</a>
-        <a href="#viewReceipt" class="nav-item" data-section="viewReceipt">📄 View Receipt</a>
+        <a href="#dashboard" class="nav-item" data-section="dashboard"
+          >📊 Dashboard</a
+        >
+        <a href="#receipt" class="nav-item" data-section="receipt"
+          >📝 Create Receipt</a
+        >
+        <a href="#viewReceipt" class="nav-item" data-section="viewReceipt"
+          >📄 View Receipt</a
+        >
         <a href="#search" class="nav-item" data-section="search">🔍 Search</a>
-        <a href="#estates" class="nav-item" data-section="estates">🏢 Estates</a>
-        <a href="#history" class="nav-item" data-section="history">📋 History</a>
+        <a href="#estates" class="nav-item" data-section="estates"
+          >🏢 Estates</a
+        >
+        <a href="#history" class="nav-item" data-section="history"
+          >📋 History</a
+        >
         <a href="#backup" class="nav-item" data-section="backup">💾 Backup</a>
-        <a href="#settings" class="nav-item" data-section="settings">⚙️ Settings</a>
+        <a href="#settings" class="nav-item" data-section="settings"
+          >⚙️ Settings</a
+        >
       </nav>
     </aside>
 
@@ -57,7 +69,15 @@
             </div>
           </div>
 
-          <button id="createReceiptBtn" style="width: 100%; margin-top: 15px; background: #16a34a; font-size: 16px;">
+          <button
+            id="createReceiptBtn"
+            style="
+              width: 100%;
+              margin-top: 15px;
+              background: #16a34a;
+              font-size: 16px;
+            "
+          >
             + Create Receipt
           </button>
         </section>
@@ -86,7 +106,14 @@
 
             <input type="text" id="payerPhone" placeholder="Phone Number" />
 
-            <input type="text" id="unit" placeholder="Property / Shop / Flat" />
+            <!-- <input type="text" id="unit" placeholder="Property / Shop / Flat" /> -->
+            <select id="estate">
+              <option value="">Select Property</option>
+            </select>
+
+            <select id="unit">
+              <option value="">Select Unit</option>
+            </select>
 
             <select id="paymentType">
               <option value="Rent">Rent</option>
@@ -137,16 +164,39 @@
       <section id="estates" class="page-section hidden">
         <section class="card">
           <h2>Manage Properties/Estates</h2>
-          
+
           <!-- Add New Estate Form -->
-          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-            <h3 style="margin-top: 0;">Add New Property</h3>
-            <div style="display: grid; gap: 10px;">
-              <input type="text" id="estateNameInput" placeholder="Property Name (e.g., Block A, Flat 5, Shop 2)" required />
-              <input type="text" id="estateLocationInput" placeholder="Location/Address" />
-              <div style="display: flex; gap: 10px;">
-                <button id="addEstateBtn" style="flex: 1; background: #16a34a;">Add Property</button>
-                <button id="editEstateBtn" style="flex: 1; background: #dc2626;">Edit Property</button>
+          <div
+            style="
+              background: #f8fafc;
+              padding: 15px;
+              border-radius: 8px;
+              margin-bottom: 20px;
+            "
+          >
+            <h3 style="margin-top: 0">Add New Property</h3>
+            <div style="display: grid; gap: 10px">
+              <input
+                type="text"
+                id="estateNameInput"
+                placeholder="Property Name (e.g., Block A, Flat 5, Shop 2)"
+                required
+              />
+              <input
+                type="text"
+                id="estateLocationInput"
+                placeholder="Location/Address"
+              />
+              <textarea name="" id="estateUnitsInput" placeholder=" Units separated by commas 
+                Shop1, Shop 2, shop 3, Flat A, Flat B, Flat C">
+              </textarea>
+              <div style="display: flex; gap: 10px">
+                <button id="addEstateBtn" style="flex: 1; background: #16a34a">
+                  Add Property
+                </button>
+                <button id="editEstateBtn" style="flex: 1; background: #dc2626">
+                  Edit Property
+                </button>
               </div>
             </div>
           </div>

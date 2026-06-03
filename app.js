@@ -71,6 +71,7 @@ function saveEstate(estate) {
     id: Date.now(),
     name: estate.name,
     location: estate.location || "",
+    units: estate.units || [],
   });
   localStorage.setItem("estates", JSON.stringify(estates));
   updateEstateDropdown();
@@ -94,28 +95,38 @@ function deleteEstate(id) {
   updateEstateDropdown();
 }
 function editEstate(id) {
-  const estate = estate.find((e) => e.id === id);
+  const estate = estates.find((e) => e.id === id);
   if (!estate) return;
 
   editingEstateId = id;
 
   document.getElementById("estateNameInput").value = estate.name;
   document.getElementById("estateLocationInput").value = estate.location || "";
+  document.getElementById("estateUnitsInput").value = (estate.units || []).join(
+    ", ",
+  );
   document.getElementById("addEstateBtn").textContent = "Update Property";
 }
 
 function updateEstateDropdown() {
+  const estateSelect = document.getElementById("estate");
   const unitSelect = document.getElementById("unit");
-  if (!unitSelect) return;
 
-  unitSelect.innerHTML = '<option value="">Select Property</option>';
+  if (!estateSelect || !unitSelect) return;
+
+  // reset estate dropdown
+  estateSelect.innerHTML = '<option value="">Select Property</option>';
   estates.forEach((e) => {
     const option = document.createElement("option");
-    option.value = e.name;
-    option.textContent = e.name + (e.location ? ` - ${e.location}` : "");
-    unitSelect.appendChild(option);
+    option.value = e.id;
+    option.textContent = e.name;
+    estateSelect.appendChild(option);
   });
+
+  // reset units
+  unitSelect.innerHTML = '<option value="">Select Unit</option>';
 }
+
 function registerEvents() {
   document
     .getElementById("receiptForm")
@@ -452,6 +463,27 @@ document.addEventListener("DOMContentLoaded", function () {
       };
       reader.readAsDataURL(file);
     });
+    // ===== ESTATE → UNIT LINK (OPTION 2 CORE LOGIC) =====
+    const estateSelect = document.getElementById("estate");
+
+    if (estateSelect) {
+      estateSelect.addEventListener("change", function () {
+        const estateId = Number(this.value);
+        const unitSelect = document.getElementById("unit");
+
+        unitSelect.innerHTML = '<option value="">Select Unit</option>';
+
+        const estate = estates.find((e) => e.id === estateId);
+        if (!estate || !estate.units) return;
+
+        estate.units.forEach((unit) => {
+          const option = document.createElement("option");
+          option.value = unit;
+          option.textContent = unit;
+          unitSelect.appendChild(option);
+        });
+      });
+    }
   }
 
   // Add Estate Button
@@ -462,19 +494,58 @@ document.addEventListener("DOMContentLoaded", function () {
       const location = document
         .getElementById("estateLocationInput")
         .value.trim();
+      const unitsRaw = document.getElementById("estateUnitsInput").value.trim();
+      const units = unitsRaw
+        .split(",")
+        .map((u) => u.trim())
+        .filter((u) => u !== "");
 
       if (!name) {
         alert("Property name is required");
         return;
+
+        if (editingEstateId) {
+          // Update Existing Estate
+          const estate = estates.find((e) => e.id === editingEstateId);
+
+          if (estate) {
+            estate.name = name;
+            estate.location = location;
+            estate.units = units;
+          }
+
+          editingEstateId = null;
+          document.getElementById("addEstateBtn").textContent = "Add Property";
+
+          alert("Property updated successfully!");
+        } else {
+          // Create New Estate
+          estates.push({
+            id: Date.now(),
+            name: name,
+            location: location,
+            units: units,
+          });
+          alert("Property added successfully!");
+        }
+        localStorage.setItem("estates", JSON.stringify(estates));
+
+        document.getElementById("estateNameInput").value = "";
+        document.getElementById("estateLocationInput").value = "";
+        document.getElementById("estateUnitsInput").value = "";
+
+        loadEstatesDetail();
+        updateEstateDropdown();
       }
 
-      saveEstate({ name, location });
+      saveEstate({ name, location, units });
       if (editingEstateId) {
         const estate = estates.find((e) => e.id === editingEstateId);
 
         if (estate) {
           estate.name = name;
           estate.location = location;
+          estate.units = units;
         }
 
         localStorage.setItem("estates", JSON.stringify(estates));
