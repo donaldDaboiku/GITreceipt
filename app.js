@@ -666,8 +666,8 @@ async function loadEstatesDetail() {
     html += `
       <div class="estate-item" style='background: #f0f4f8; padding: 15px; border-radius: 8px; border-left: 4px solid #0f172a; display: flex; justify-content: space-between; align-items: center;'>
         <div class="estate-info">
-        <h3>${escapeHtml(estate.name)}</h3>
-        ${estate.location ? `<p>${escapeHtml(estate.location)}</p>` : ""}
+          <h3>${escapeHtml(estate.name)}</h3>
+          ${estate.location ? `<p>${escapeHtml(estate.location)}</p>` : ""}
         </div>
         <div class="estate-actions">
           <button class="edit-btn" onclick="editEstate(${estate.id})">Edit</button>
