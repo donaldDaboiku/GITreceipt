@@ -106,6 +106,13 @@ function editEstate(id) {
     ", ",
   );
   document.getElementById("addEstateBtn").textContent = "Update Property";
+  document.getElementById("editEstateBtn").style.display = "block";
+  
+  // Scroll to the form for better UX
+  const form = document.querySelector(".card");
+  if (form) {
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function updateEstateDropdown() {
@@ -560,6 +567,10 @@ document.addEventListener("DOMContentLoaded", function () {
       const today = new Date().toISOString().split('T')[0];
       document.getElementById("paymentDate").value = today;
       
+      // Ensure estates are loaded and dropdown is updated
+      loadEstates();
+      updateEstateDropdown();
+      
       showSection("receipt");
       const receiptNav = document.querySelector("[data-section='receipt']");
       if (receiptNav) {
@@ -677,6 +688,10 @@ function showSection(sectionId) {
       loadEstatesDetail();
     } else if (sectionId === "history") {
       loadHistoryDetail();
+    } else if (sectionId === "receipt") {
+      // Ensure estates are loaded for dropdown
+      loadEstates();
+      updateEstateDropdown();
     }
   }
 }
