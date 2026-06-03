@@ -661,10 +661,10 @@ async function loadEstatesDetail() {
     return;
   }
 
-  let html = "<div style='display: grid; gap: 10px;'>";
+  let html = "";
   estates.forEach((estate) => {
     html += `
-      <div class="estate-item" style='background: #f0f4f8; padding: 15px; border-radius: 8px; border-left: 4px solid #0f172a; display: flex; justify-content: space-between; align-items: center;'>
+      <div class="estate-item">
         <div class="estate-info">
           <h3>${escapeHtml(estate.name)}</h3>
           ${estate.location ? `<p>${escapeHtml(estate.location)}</p>` : ""}
@@ -677,7 +677,6 @@ async function loadEstatesDetail() {
       </div>
     `;
   });
-  html += "</div>";
   container.innerHTML = html;
 }
 
