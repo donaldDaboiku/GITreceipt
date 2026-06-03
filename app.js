@@ -156,6 +156,12 @@ async function createReceipt(e) {
     return;
   }
 
+  const paymentDate = document.getElementById("paymentDate").value;
+  if (!paymentDate) {
+    alert("Payment date is required");
+    return;
+  }
+
   const receipt = {
     receiptNo: generateReceiptNo(),
     payer: payer,
@@ -165,6 +171,7 @@ async function createReceipt(e) {
     amount: amount,
     paymentMethod: document.getElementById("paymentMethod").value,
     remarks: document.getElementById("remarks").value.trim(),
+    paymentDate: paymentDate,
     date: new Date().toLocaleString(),
   };
 
@@ -229,7 +236,12 @@ function showReceipt(r, containerId = "receiptPreview") {
             </div>
             
             <div class="receipt-row">
-                <label>Date</label>
+                <label>Payment Date</label>
+                <span>${r.paymentDate ? escapeHtml(r.paymentDate) : escapeHtml(r.date)}</span>
+            </div>
+            
+            <div class="receipt-row">
+                <label>Receipt Issued</label>
                 <span>${escapeHtml(r.date)}</span>
             </div>
             
@@ -503,43 +515,10 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!name) {
         alert("Property name is required");
         return;
-
-        if (editingEstateId) {
-          // Update Existing Estate
-          const estate = estates.find((e) => e.id === editingEstateId);
-
-          if (estate) {
-            estate.name = name;
-            estate.location = location;
-            estate.units = units;
-          }
-
-          editingEstateId = null;
-          document.getElementById("addEstateBtn").textContent = "Add Property";
-
-          alert("Property updated successfully!");
-        } else {
-          // Create New Estate
-          estates.push({
-            id: Date.now(),
-            name: name,
-            location: location,
-            units: units,
-          });
-          alert("Property added successfully!");
-        }
-        localStorage.setItem("estates", JSON.stringify(estates));
-
-        document.getElementById("estateNameInput").value = "";
-        document.getElementById("estateLocationInput").value = "";
-        document.getElementById("estateUnitsInput").value = "";
-
-        loadEstatesDetail();
-        updateEstateDropdown();
       }
 
-      saveEstate({ name, location, units });
       if (editingEstateId) {
+        // Update Existing Estate
         const estate = estates.find((e) => e.id === editingEstateId);
 
         if (estate) {
@@ -549,20 +528,24 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         localStorage.setItem("estates", JSON.stringify(estates));
-
         editingEstateId = null;
-
         document.getElementById("addEstateBtn").textContent = "Add Property";
-
         alert("Property updated successfully!");
       } else {
-        saveEstate({ name, location });
-
+        // Create New Estate
+        estates.push({
+          id: Date.now(),
+          name: name,
+          location: location,
+          units: units,
+        });
+        localStorage.setItem("estates", JSON.stringify(estates));
         alert("Property added successfully!");
       }
 
       document.getElementById("estateNameInput").value = "";
       document.getElementById("estateLocationInput").value = "";
+      document.getElementById("estateUnitsInput").value = "";
 
       loadEstatesDetail();
       updateEstateDropdown();
@@ -573,6 +556,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const createReceiptBtn = document.getElementById("createReceiptBtn");
   if (createReceiptBtn) {
     createReceiptBtn.addEventListener("click", function () {
+      // Set today's date as default
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById("paymentDate").value = today;
+      
       showSection("receipt");
       const receiptNav = document.querySelector("[data-section='receipt']");
       if (receiptNav) {
@@ -580,6 +567,50 @@ document.addEventListener("DOMContentLoaded", function () {
         navItems.forEach((nav) => nav.classList.remove("active"));
         receiptNav.classList.add("active");
       }
+    });
+  }
+
+  // Edit Estate Button
+  const editEstateBtn = document.getElementById("editEstateBtn");
+  if (editEstateBtn) {
+    editEstateBtn.addEventListener("click", function () {
+      if (!editingEstateId) {
+        alert("Please click Edit on a property first");
+        return;
+      }
+
+      const name = document.getElementById("estateNameInput").value.trim();
+      const location = document
+        .getElementById("estateLocationInput")
+        .value.trim();
+      const unitsRaw = document.getElementById("estateUnitsInput").value.trim();
+      const units = unitsRaw
+        .split(",")
+        .map((u) => u.trim())
+        .filter((u) => u !== "");
+
+      if (!name) {
+        alert("Property name is required");
+        return;
+      }
+
+      const estate = estates.find((e) => e.id === editingEstateId);
+      if (estate) {
+        estate.name = name;
+        estate.location = location;
+        estate.units = units;
+      }
+
+      localStorage.setItem("estates", JSON.stringify(estates));
+      editingEstateId = null;
+      document.getElementById("addEstateBtn").textContent = "Add Property";
+      document.getElementById("estateNameInput").value = "";
+      document.getElementById("estateLocationInput").value = "";
+      document.getElementById("estateUnitsInput").value = "";
+
+      alert("Property updated successfully!");
+      loadEstatesDetail();
+      updateEstateDropdown();
     });
   }
 
