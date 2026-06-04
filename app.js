@@ -1,17 +1,4 @@
 let receipts = [];
-
-document.addEventListener("DOMContentLoaded", async () => {
-  await initDB();
-
-  loadDashboard();
-
-  registerEvents();
-
-  loadHistory();
-
-  registerSW();
-});
-
 let settings = {
   businessName: "",
   address: "",
@@ -22,50 +9,103 @@ let settings = {
   footer: "",
   logo: "",
 };
-
 let estates = [];
 let editingEstateId = null;
 
-// Load settings on page start
-window.onload = function () {
+document.addEventListener("DOMContentLoaded", async () => {
+  // 1. Initialize theme
+  initTheme();
+
+  // 2. Initialize database
+  try {
+    await initDB();
+  } catch (error) {
+    console.error("Database initialization failed:", error);
+  }
+
+  // 3. Load configuration state
   loadSettings();
   loadEstates();
-};
 
+  // 4. Populate views
+  loadDashboard();
+  loadHistory();
+
+  // 5. Register application event listeners
+  registerEvents();
+
+  // 6. Register progressive web app service worker
+  registerSW();
+
+  // 7. Show default section
+  showSection("dashboard");
+});
+
+// Theme Management
+function initTheme() {
+  const savedTheme = localStorage.getItem("theme") || "light";
+  if (savedTheme === "dark") {
+    document.body.classList.add("dark");
+  } else {
+    document.body.classList.remove("dark");
+  }
+}
+
+function toggleTheme() {
+  if (document.body.classList.contains("dark")) {
+    document.body.classList.remove("dark");
+    localStorage.setItem("theme", "light");
+  } else {
+    document.body.classList.add("dark");
+    localStorage.setItem("theme", "dark");
+  }
+}
+
+// Business Settings Management
 function saveSettings() {
-  settings.businessName = document.getElementById("businessName").value;
-  settings.address = document.getElementById("address").value;
-  settings.phone = document.getElementById("phone").value;
-  settings.email = document.getElementById("email").value;
-  settings.prefix = document.getElementById("prefix").value;
-  settings.currency = document.getElementById("currency").value;
-  settings.footer = document.getElementById("footer").value;
+  settings.businessName = document.getElementById("businessName").value.trim();
+  settings.address = document.getElementById("address").value.trim();
+  settings.phone = document.getElementById("phone").value.trim();
+  settings.email = document.getElementById("email").value.trim();
+  settings.prefix = document.getElementById("prefix").value.trim() || "EST";
+  settings.currency = document.getElementById("currency").value.trim() || "₦";
+  settings.footer = document.getElementById("footer").value.trim();
 
   localStorage.setItem("businessSettings", JSON.stringify(settings));
-
   alert("Settings Saved Successfully!");
+
+  // Refresh views to reflect currency/prefix updates
+  loadDashboard();
+  loadHistory();
 }
 
 function loadSettings() {
   let saved = localStorage.getItem("businessSettings");
-
   if (saved) {
-    settings = JSON.parse(saved);
+    settings = { ...settings, ...JSON.parse(saved) };
+  }
 
-    document.getElementById("businessName").value = settings.businessName || "";
-    document.getElementById("address").value = settings.address || "";
-    document.getElementById("phone").value = settings.phone || "";
-    document.getElementById("email").value = settings.email || "";
-    document.getElementById("prefix").value = settings.prefix || "EST";
-    document.getElementById("currency").value = settings.currency || "₦";
-    document.getElementById("footer").value = settings.footer || "";
+  document.getElementById("businessName").value = settings.businessName || "";
+  document.getElementById("address").value = settings.address || "";
+  document.getElementById("phone").value = settings.phone || "";
+  document.getElementById("email").value = settings.email || "";
+  document.getElementById("prefix").value = settings.prefix || "EST";
+  document.getElementById("currency").value = settings.currency || "₦";
+  document.getElementById("footer").value = settings.footer || "";
 
+  const logoPreview = document.getElementById("logoPreview");
+  if (logoPreview) {
     if (settings.logo) {
-      document.getElementById("logoPreview").src = settings.logo;
+      logoPreview.src = settings.logo;
+      logoPreview.style.display = "block";
+    } else {
+      logoPreview.src = "";
+      logoPreview.style.display = "none";
     }
   }
 }
 
+// Estates/Properties Management
 function saveEstate(estate) {
   estates.push({
     id: Date.now(),
@@ -80,7 +120,12 @@ function saveEstate(estate) {
 function loadEstates() {
   let saved = localStorage.getItem("estates");
   if (saved) {
-    estates = JSON.parse(saved);
+    try {
+      estates = JSON.parse(saved);
+    } catch (e) {
+      console.error("Error parsing estates", e);
+      estates = [];
+    }
   } else {
     estates = [];
   }
@@ -88,12 +133,19 @@ function loadEstates() {
 }
 
 function deleteEstate(id) {
-  if (!confirm("Delete this property?")) return;
+  if (!confirm("Are you sure you want to delete this property? All associated unit information will remain on past receipts, but the property will be removed from selection.")) return;
   estates = estates.filter((e) => e.id !== id);
   localStorage.setItem("estates", JSON.stringify(estates));
+  
+  // If we are currently editing the estate being deleted, cancel edit mode
+  if (editingEstateId === id) {
+    cancelEstateEditing();
+  }
+
   loadEstatesDetail();
   updateEstateDropdown();
 }
+
 function editEstate(id) {
   const estate = estates.find((e) => e.id === id);
   if (!estate) return;
@@ -102,16 +154,31 @@ function editEstate(id) {
 
   document.getElementById("estateNameInput").value = estate.name;
   document.getElementById("estateLocationInput").value = estate.location || "";
-  document.getElementById("estateUnitsInput").value = (estate.units || []).join(
-    ", ",
-  );
-  document.getElementById("addEstateBtn").textContent = "Update Property";
-  document.getElementById("editEstateBtn").style.display = "block";
+  document.getElementById("estateUnitsInput").value = (estate.units || []).join(", ");
   
-  // Scroll to the form for better UX
-  const form = document.querySelector(".card");
-  if (form) {
-    form.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("addEstateBtn").textContent = "Update Property";
+  const cancelBtn = document.getElementById("cancelEstateEditBtn");
+  if (cancelBtn) {
+    cancelBtn.style.display = "block";
+  }
+
+  // Scroll to form view smoothly
+  const formCard = document.getElementById("estateNameInput").closest(".card");
+  if (formCard) {
+    formCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function cancelEstateEditing() {
+  editingEstateId = null;
+  document.getElementById("estateNameInput").value = "";
+  document.getElementById("estateLocationInput").value = "";
+  document.getElementById("estateUnitsInput").value = "";
+  
+  document.getElementById("addEstateBtn").textContent = "Add Property";
+  const cancelBtn = document.getElementById("cancelEstateEditBtn");
+  if (cancelBtn) {
+    cancelBtn.style.display = "none";
   }
 }
 
@@ -121,7 +188,6 @@ function updateEstateDropdown() {
 
   if (!estateSelect || !unitSelect) return;
 
-  // reset estate dropdown
   estateSelect.innerHTML = '<option value="">Select Property</option>';
   estates.forEach((e) => {
     const option = document.createElement("option");
@@ -130,24 +196,265 @@ function updateEstateDropdown() {
     estateSelect.appendChild(option);
   });
 
-  // reset units
   unitSelect.innerHTML = '<option value="">Select Unit</option>';
 }
 
+// Global Event Registration
 function registerEvents() {
-  document
-    .getElementById("receiptForm")
-    .addEventListener("submit", createReceipt);
+  // Receipt Creation Form Submit
+  const receiptForm = document.getElementById("receiptForm");
+  if (receiptForm) {
+    receiptForm.addEventListener("submit", createReceipt);
+  }
 
-  document.getElementById("searchBtn").addEventListener("click", searchReceipt);
+  // Search Action
+  const searchBtn = document.getElementById("searchBtn");
+  if (searchBtn) {
+    searchBtn.addEventListener("click", searchReceipt);
+  }
 
-  document.getElementById("exportBtn").addEventListener("click", exportBackup);
+  // Backup Export/Import
+  const exportBtn = document.getElementById("exportBtn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", exportBackup);
+  }
 
-  document
-    .getElementById("importFile")
-    .addEventListener("change", importBackup);
+  const importFile = document.getElementById("importFile");
+  if (importFile) {
+    importFile.addEventListener("change", importBackup);
+  }
+
+  // Theme Toggle
+  const themeToggleBtn = document.getElementById("themeToggleBtn");
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", toggleTheme);
+  }
+
+  // Save Settings
+  const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+  if (saveSettingsBtn) {
+    saveSettingsBtn.addEventListener("click", saveSettings);
+  }
+
+  // Logo Input Reader
+  const logoUpload = document.getElementById("logoUpload");
+  if (logoUpload) {
+    logoUpload.addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function () {
+        settings.logo = reader.result;
+        const preview = document.getElementById("logoPreview");
+        if (preview) {
+          preview.src = reader.result;
+          preview.style.display = "block";
+        }
+      };
+      reader.onerror = function () {
+        alert("Error reading logo file");
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Estate Dropdown Select Sync to Units Select
+  const estateSelect = document.getElementById("estate");
+  if (estateSelect) {
+    estateSelect.addEventListener("change", function () {
+      const estateId = Number(this.value);
+      const unitSelect = document.getElementById("unit");
+      if (!unitSelect) return;
+
+      unitSelect.innerHTML = '<option value="">Select Unit</option>';
+
+      const estate = estates.find((e) => e.id === estateId);
+      if (!estate || !estate.units) return;
+
+      estate.units.forEach((unit) => {
+        const option = document.createElement("option");
+        option.value = unit;
+        option.textContent = unit;
+        unitSelect.appendChild(option);
+      });
+    });
+  }
+
+  // Add/Update Estate Trigger
+  const addEstateBtn = document.getElementById("addEstateBtn");
+  if (addEstateBtn) {
+    addEstateBtn.addEventListener("click", function () {
+      const name = document.getElementById("estateNameInput").value.trim();
+      const location = document.getElementById("estateLocationInput").value.trim();
+      const unitsRaw = document.getElementById("estateUnitsInput").value.trim();
+      
+      const units = unitsRaw
+        .split(",")
+        .map((u) => u.trim())
+        .filter((u) => u !== "");
+
+      if (!name) {
+        alert("Property name is required");
+        return;
+      }
+
+      if (editingEstateId) {
+        // Update
+        const estate = estates.find((e) => e.id === editingEstateId);
+        if (estate) {
+          estate.name = name;
+          estate.location = location;
+          estate.units = units;
+        }
+
+        localStorage.setItem("estates", JSON.stringify(estates));
+        editingEstateId = null;
+        document.getElementById("addEstateBtn").textContent = "Add Property";
+        
+        const cancelBtn = document.getElementById("cancelEstateEditBtn");
+        if (cancelBtn) cancelBtn.style.display = "none";
+        
+        alert("Property updated successfully!");
+      } else {
+        // Create
+        estates.push({
+          id: Date.now(),
+          name: name,
+          location: location,
+          units: units,
+        });
+        localStorage.setItem("estates", JSON.stringify(estates));
+        alert("Property added successfully!");
+      }
+
+      document.getElementById("estateNameInput").value = "";
+      document.getElementById("estateLocationInput").value = "";
+      document.getElementById("estateUnitsInput").value = "";
+
+      loadEstatesDetail();
+      updateEstateDropdown();
+    });
+  }
+
+  // Cancel Estate Editing Trigger
+  const cancelEstateEditBtn = document.getElementById("cancelEstateEditBtn");
+  if (cancelEstateEditBtn) {
+    cancelEstateEditBtn.addEventListener("click", cancelEstateEditing);
+  }
+
+  // Create Receipt Button (Redirects from Dashboard)
+  const createReceiptBtn = document.getElementById("createReceiptBtn");
+  if (createReceiptBtn) {
+    createReceiptBtn.addEventListener("click", function () {
+      // Default to today's date
+      const today = new Date().toISOString().split("T")[0];
+      const paymentDateInput = document.getElementById("paymentDate");
+      if (paymentDateInput) paymentDateInput.value = today;
+
+      loadEstates();
+      updateEstateDropdown();
+      showSection("receipt");
+    });
+  }
+
+  // Responsive Sidebar Controls
+  const hamburgerBtn = document.getElementById("hamburgerBtn");
+  const sidebar = document.getElementById("sidebar");
+  const navItems = document.querySelectorAll(".nav-item");
+
+  if (hamburgerBtn && sidebar) {
+    hamburgerBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      hamburgerBtn.classList.toggle("active");
+      sidebar.classList.toggle("active");
+    });
+
+    navItems.forEach((item) => {
+      item.addEventListener("click", function (e) {
+        e.preventDefault();
+        hamburgerBtn.classList.remove("active");
+        sidebar.classList.remove("active");
+
+        const section = this.getAttribute("data-section");
+        showSection(section);
+      });
+    });
+
+    document.addEventListener("click", function (e) {
+      if (
+        !sidebar.contains(e.target) &&
+        !hamburgerBtn.contains(e.target) &&
+        sidebar.classList.contains("active")
+      ) {
+        hamburgerBtn.classList.remove("active");
+        sidebar.classList.remove("active");
+      }
+    });
+  }
+
+  // Setup Event Delegation for dynamic receipt lists
+  const receiptList = document.getElementById("receiptList");
+  if (receiptList) {
+    receiptList.addEventListener("click", handleHistoryClick);
+  }
+
+  const historyDetailList = document.getElementById("historyDetailList");
+  if (historyDetailList) {
+    historyDetailList.addEventListener("click", handleHistoryClick);
+  }
+
+  const searchResults = document.getElementById("searchResults");
+  if (searchResults) {
+    searchResults.addEventListener("click", handleHistoryClick);
+  }
+
+  // Setup Event Delegation for properties list
+  const estatesListContainer = document.getElementById("estatesListContainer");
+  if (estatesListContainer) {
+    estatesListContainer.addEventListener("click", (e) => {
+      const editBtn = e.target.closest(".edit-btn");
+      const deleteBtn = e.target.closest(".delete-btn");
+      if (editBtn) {
+        const id = Number(editBtn.getAttribute("data-id"));
+        editEstate(id);
+      } else if (deleteBtn) {
+        const id = Number(deleteBtn.getAttribute("data-id"));
+        deleteEstate(id);
+      }
+    });
+  }
+
+  // Back to Dashboard buttons and Header Brand Redirection
+  const brandBtn = document.getElementById("brandBtn");
+  if (brandBtn) {
+    brandBtn.addEventListener("click", () => {
+      showSection("dashboard");
+    });
+  }
+
+  const backDashboardButtons = document.querySelectorAll(".back-dashboard-btn");
+  backDashboardButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      showSection("dashboard");
+    });
+  });
 }
 
+// History Event Delegation Handler
+function handleHistoryClick(e) {
+  const viewBtn = e.target.closest(".view-btn");
+  const deleteBtn = e.target.closest(".delete-btn");
+  if (viewBtn) {
+    const no = viewBtn.getAttribute("data-no");
+    viewReceipt(no);
+  } else if (deleteBtn) {
+    const no = deleteBtn.getAttribute("data-no");
+    removeReceipt(no);
+  }
+}
+
+// Receipt Creation Handler
 async function createReceipt(e) {
   e.preventDefault();
 
@@ -169,10 +476,23 @@ async function createReceipt(e) {
     return;
   }
 
+  // Capture Property & Unit details
+  const estateSelect = document.getElementById("estate");
+  const selectedEstateId = estateSelect.value;
+  let estateName = "";
+  if (selectedEstateId) {
+    const estate = estates.find((e) => e.id === Number(selectedEstateId));
+    if (estate) {
+      estateName = estate.name;
+    }
+  }
+
   const receipt = {
     receiptNo: generateReceiptNo(),
     payer: payer,
     phone: document.getElementById("payerPhone").value.trim(),
+    estateId: selectedEstateId ? Number(selectedEstateId) : null,
+    estateName: estateName,
     unit: document.getElementById("unit").value.trim(),
     paymentType: document.getElementById("paymentType").value,
     amount: amount,
@@ -184,51 +504,93 @@ async function createReceipt(e) {
 
   await saveReceipt(receipt);
   showReceipt(receipt);
+  
   document.getElementById("receiptForm").reset();
+  
   loadHistory();
   loadDashboard();
-
-  // Navigate to receipt preview page
   showSection("viewReceipt");
 }
 
 function escapeHtml(text) {
+  if (text === null || text === undefined) return "";
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
 }
 
+// Render dynamic, premium receipt layout
 function showReceipt(r, containerId = "receiptPreview") {
   const preview = document.getElementById(containerId);
   if (!preview) return;
 
   preview.classList.remove("hidden");
 
+  const currencySymbol = settings.currency || "₦";
+
+  // Build Business Headers from config
+  const logoHtml = settings.logo
+    ? `<img src="${settings.logo}" class="receipt-logo" alt="Business Logo" />`
+    : "";
+
+  const bizNameHtml = settings.businessName
+    ? `<h1 class="receipt-biz-name">${escapeHtml(settings.businessName)}</h1>`
+    : "";
+
+  const bizAddressHtml = settings.address
+    ? `<div class="receipt-biz-address">${escapeHtml(settings.address).replace(/\n/g, "<br>")}</div>`
+    : "";
+
+  const bizContactHtml = (settings.phone || settings.email)
+    ? `<div class="receipt-biz-contact">
+        ${settings.phone ? `📞 ${escapeHtml(settings.phone)}` : ""}
+        ${settings.email ? ` &nbsp;✉️ ${escapeHtml(settings.email)}` : ""}
+       </div>`
+    : "";
+
+  const footerMessageHtml = settings.footer
+    ? `<p class="receipt-footer-message">${escapeHtml(settings.footer)}</p>`
+    : `<p class="receipt-footer-message">Thank you for your payment!</p>`;
+
+  // Format Property String
+  let propertyStr = escapeHtml(r.unit || "N/A");
+  if (r.estateName) {
+    propertyStr = `${escapeHtml(r.estateName)} - ${escapeHtml(r.unit)}`;
+  }
+
   preview.innerHTML = `
     <div class="receipt-card">
         <div class="receipt-card-header">
-            <h2>ESTATE RECEIPT</h2>
-            <span class="receipt-no">${escapeHtml(r.receiptNo)}</span>
+            ${logoHtml}
+            ${bizNameHtml}
+            ${bizAddressHtml}
+            ${bizContactHtml}
+            <div class="receipt-divider">
+              <h2>PAYMENT RECEIPT</h2>
+              <span class="receipt-no">${escapeHtml(r.receiptNo)}</span>
+            </div>
         </div>
         
         <div class="receipt-card-body">
             <div class="receipt-row">
-                <label>Name</label>
+                <label>Received From</label>
                 <span>${escapeHtml(r.payer)}</span>
             </div>
             
+            ${r.phone ? `
             <div class="receipt-row">
-                <label>Phone</label>
+                <label>Phone Number</label>
                 <span>${escapeHtml(r.phone)}</span>
             </div>
+            ` : ""}
             
             <div class="receipt-row">
-                <label>Property</label>
-                <span>${escapeHtml(r.unit)}</span>
+                <label>Property/Unit</label>
+                <span>${propertyStr}</span>
             </div>
             
             <div class="receipt-row">
-                <label>Payment Type</label>
+                <label>Payment For</label>
                 <span>${escapeHtml(r.paymentType)}</span>
             </div>
             
@@ -237,9 +599,9 @@ function showReceipt(r, containerId = "receiptPreview") {
                 <span>${escapeHtml(r.paymentMethod)}</span>
             </div>
             
-            <div class="receipt-row">
-                <label>Amount</label>
-                <span class="amount">₦${r.amount.toLocaleString()}</span>
+            <div class="receipt-row highlight">
+                <label>Amount Paid</label>
+                <span class="amount">${escapeHtml(currencySymbol)}${Number(r.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
             
             <div class="receipt-row">
@@ -248,121 +610,69 @@ function showReceipt(r, containerId = "receiptPreview") {
             </div>
             
             <div class="receipt-row">
-                <label>Receipt Issued</label>
+                <label>Issue Date</label>
                 <span>${escapeHtml(r.date)}</span>
             </div>
             
-            ${
-              r.remarks
-                ? `
-            <div class="receipt-row">
+            ${r.remarks ? `
+            <div class="receipt-row remarks">
                 <label>Remarks</label>
                 <span>${escapeHtml(r.remarks)}</span>
             </div>
-            `
-                : ""
-            }
+            ` : ""}
         </div>
         
         <div class="receipt-card-signature">
             <div class="signature-line"></div>
-            <small>Signature / Stamp</small>
+            <small>Authorized Signature / Stamp</small>
         </div>
         
         <div class="receipt-card-footer">
-            <button class="print-btn" onclick="window.print()">🖨️ Print Receipt</button>
+            ${footerMessageHtml}
+            <button class="print-btn">🖨️ Print Receipt</button>
         </div>
     </div>
   `;
-}
 
-async function loadHistory() {
-  receipts = await getAllReceipts();
-  const list = document.getElementById("receiptList");
-
-  if (receipts.length === 0) {
-    list.innerHTML = "<p>No receipts found</p>";
-    return;
+  // Attach Print Action
+  const printBtn = preview.querySelector(".print-btn");
+  if (printBtn) {
+    printBtn.addEventListener("click", () => {
+      window.print();
+    });
   }
-
-  let html = "";
-  receipts.reverse().forEach((r) => {
-    html += `
-      <div class="history-item">
-        <div class="history-info">
-          <strong>${escapeHtml(r.receiptNo)}</strong>
-          <br>
-          ${escapeHtml(r.payer)}
-          <br>
-          ₦${r.amount.toLocaleString()}
-        </div>
-        <div class="history-actions">
-          <button class="view-btn" onclick="viewReceipt('${escapeHtml(r.receiptNo)}');">View</button>
-          <button class="delete-btn" onclick="removeReceipt('${escapeHtml(r.receiptNo)}');">Delete</button>
-        </div>
-      </div>
-    `;
-  });
-  list.innerHTML = html;
 }
 
-async function viewReceipt(no) {
-  const receipt = await getReceipt(no);
-  if (!receipt) {
-    alert("Receipt not found");
-    return;
-  }
-  showReceipt(receipt);
-  showSection("viewReceipt");
-}
-
-async function removeReceipt(no) {
-  if (!confirm("Delete receipt?")) return;
-
-  await deleteReceipt(no);
-
-  loadHistory();
-
-  loadDashboard();
-}
-
-async function searchReceipt() {
-  const no = document.getElementById("searchBox").value;
-
-  const receipt = await getReceipt(no);
-
-  if (!receipt) {
-    alert("Receipt not found");
-    return;
-  }
-
-  showReceipt(receipt);
-  showSection("viewReceipt");
-}
-
+// Load Dashboard statistics & layouts
 async function loadDashboard() {
   const data = await getAllReceipts();
 
   const totalReceipts = data.length;
   const totalAmount = data.reduce((sum, r) => sum + r.amount, 0);
+  const currencySymbol = settings.currency || "₦";
 
   document.getElementById("totalReceipts").textContent = totalReceipts;
   document.getElementById("totalAmount").textContent =
-    "₦" + Math.max(0, totalAmount).toLocaleString();
+    currencySymbol + Math.max(0, totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   loadEstatesOverview(data);
 }
 
+// Generate Estates revenue statistics widgets
 async function loadEstatesOverview(data) {
   const estatesMap = {};
 
   data.forEach((r) => {
-    const unit = r.unit || "Unassigned";
-    if (!estatesMap[unit]) {
-      estatesMap[unit] = { unit: unit, count: 0, total: 0 };
+    let displayUnit = r.unit || "Unassigned";
+    if (r.estateName) {
+      displayUnit = `${r.estateName} - ${r.unit || "Unassigned"}`;
     }
-    estatesMap[unit].count += 1;
-    estatesMap[unit].total += r.amount;
+
+    if (!estatesMap[displayUnit]) {
+      estatesMap[displayUnit] = { label: displayUnit, count: 0, total: 0 };
+    }
+    estatesMap[displayUnit].count += 1;
+    estatesMap[displayUnit].total += r.amount;
   });
 
   const estatesList = Object.values(estatesMap).sort(
@@ -373,23 +683,22 @@ async function loadEstatesOverview(data) {
   if (!container) return;
 
   if (estatesList.length === 0) {
-    container.innerHTML = "<p>No estate data</p>";
+    container.innerHTML = "<p style='text-align: center; color: #64748b;'>No estate transactions recorded yet.</p>";
     return;
   }
 
-  let html = "<div style='display: grid; gap: 10px;'>";
+  const currencySymbol = settings.currency || "₦";
+  let html = "<div class='estates-overview-grid'>";
   estatesList.forEach((estate) => {
     html += `
-      <div style='background: #f0f4f8; padding: 12px; border-radius: 8px; border-left: 4px solid #0f172a;'>
-        <div style='display: flex; justify-content: space-between; align-items: center;'>
-          <div>
-            <strong>${escapeHtml(estate.unit)}</strong>
-            <br>
-            <small>Receipts: ${estate.count}</small>
-          </div>
-          <div style='text-align: right; font-weight: bold; color: #16a34a;'>
-            ₦${Math.max(0, estate.total).toLocaleString()}
-          </div>
+      <div class="estate-overview-card">
+        <div class="estate-overview-info">
+          <strong>${escapeHtml(estate.label)}</strong>
+          <br>
+          <small>Receipts: ${estate.count}</small>
+        </div>
+        <div class="estate-overview-amount">
+          ${escapeHtml(currencySymbol)}${Math.max(0, estate.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </div>
       </div>
     `;
@@ -398,22 +707,299 @@ async function loadEstatesOverview(data) {
   container.innerHTML = html;
 }
 
-async function exportBackup() {
-  const data = await getAllReceipts();
+// Load standard history list on Dashboard
+async function loadHistory() {
+  receipts = await getAllReceipts();
+  const list = document.getElementById("receiptList");
 
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
+  if (receipts.length === 0) {
+    list.innerHTML = "<p style='text-align: center; color: #64748b;'>No receipts found</p>";
+    return;
+  }
+
+  const currencySymbol = settings.currency || "₦";
+  let html = "";
+  [...receipts].reverse().forEach((r) => {
+    let propertyText = escapeHtml(r.unit || "N/A");
+    if (r.estateName) {
+      propertyText = `${escapeHtml(r.estateName)} - ${escapeHtml(r.unit)}`;
+    }
+
+    html += `
+      <div class="history-item">
+        <div class="history-info">
+          <strong>${escapeHtml(r.receiptNo)}</strong>
+          <br>
+          ${escapeHtml(r.payer)}
+          <br>
+          <span style="font-size: 13px; color: #64748b;">Property: ${propertyText}</span>
+          <br>
+          <span style="font-weight: bold; color: var(--success);">${escapeHtml(currencySymbol)}${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div class="history-actions">
+          <button class="view-btn" data-no="${escapeHtml(r.receiptNo)}">View</button>
+          <button class="delete-btn" data-no="${escapeHtml(r.receiptNo)}">Delete</button>
+        </div>
+      </div>
+    `;
+  });
+  list.innerHTML = html;
+}
+
+// Detail History section loader
+async function loadHistoryDetail() {
+  const data = await getAllReceipts();
+  const list = document.getElementById("historyDetailList");
+
+  if (data.length === 0) {
+    list.innerHTML = "<p style='text-align: center; color: #64748b;'>No receipts found</p>";
+    return;
+  }
+
+  const currencySymbol = settings.currency || "₦";
+  let html = "";
+  [...data].reverse().forEach((r) => {
+    let propertyText = escapeHtml(r.unit || "N/A");
+    if (r.estateName) {
+      propertyText = `${escapeHtml(r.estateName)} - ${escapeHtml(r.unit)}`;
+    }
+
+    html += `
+      <div class="history-item">
+        <div class="history-info">
+          <strong>${escapeHtml(r.receiptNo)}</strong>
+          <br>
+          ${escapeHtml(r.payer)}
+          <br>
+          <span style="font-size: 13px; color: #64748b;">Property: ${propertyText}</span>
+          <br>
+          <span style="font-weight: bold; color: var(--success);">${escapeHtml(currencySymbol)}${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div class="history-actions">
+          <button class="view-btn" data-no="${escapeHtml(r.receiptNo)}">View</button>
+          <button class="delete-btn" data-no="${escapeHtml(r.receiptNo)}">Delete</button>
+        </div>
+      </div>
+    `;
+  });
+  list.innerHTML = html;
+}
+
+// View details for a single receipt
+async function viewReceipt(no) {
+  const receipt = await getReceipt(no);
+  if (!receipt) {
+    alert("Receipt not found");
+    return;
+  }
+  showReceipt(receipt);
+  showSection("viewReceipt");
+}
+
+// Remove single receipt record
+async function removeReceipt(no) {
+  if (!confirm("Are you sure you want to delete this receipt? This action cannot be undone.")) return;
+
+  await deleteReceipt(no);
+  loadHistory();
+  loadHistoryDetail();
+  loadDashboard();
+  
+  // If we are currently displaying the deleted receipt on preview, reset it
+  const preview = document.getElementById("receiptPreview");
+  if (preview && !preview.classList.contains("hidden")) {
+    const activeReceiptNoEl = preview.querySelector(".receipt-no");
+    if (activeReceiptNoEl && activeReceiptNoEl.textContent === no) {
+      preview.innerHTML = "<p style='text-align: center; color: #64748b; padding: 40px 0;'>Select a receipt from History to view</p>";
+    }
+  }
+}
+
+// Multi-field search implementation
+async function searchReceipt() {
+  const query = document.getElementById("searchBox").value.trim().toLowerCase();
+  const resultsContainer = document.getElementById("searchResults");
+  if (!resultsContainer) return;
+
+  if (!query) {
+    resultsContainer.innerHTML = "<p style='text-align: center; color: #64748b; padding: 10px 0;'>Please enter a search query (name, unit, or receipt number)</p>";
+    return;
+  }
+
+  const allReceipts = await getAllReceipts();
+  const matches = allReceipts.filter((r) => {
+    const receiptNo = (r.receiptNo || "").toLowerCase();
+    const payer = (r.payer || "").toLowerCase();
+    const phone = (r.phone || "").toLowerCase();
+    const unit = (r.unit || "").toLowerCase();
+    const estateName = (r.estateName || "").toLowerCase();
+    const remarks = (r.remarks || "").toLowerCase();
+    const type = (r.paymentType || "").toLowerCase();
+    
+    return receiptNo.includes(query) || 
+           payer.includes(query) || 
+           phone.includes(query) || 
+           unit.includes(query) ||
+           estateName.includes(query) ||
+           remarks.includes(query) ||
+           type.includes(query);
+  });
+
+  if (matches.length === 0) {
+    resultsContainer.innerHTML = "<p style='text-align: center; color: #64748b; padding: 20px 0;'>No matching receipts found</p>";
+    return;
+  }
+
+  const currencySymbol = settings.currency || "₦";
+  let html = `<h3 style="margin-bottom: 15px; font-size: 16px; color: var(--primary);">Search Results (${matches.length})</h3>`;
+  
+  matches.reverse().forEach((r) => {
+    let propertyText = escapeHtml(r.unit || "N/A");
+    if (r.estateName) {
+      propertyText = `${escapeHtml(r.estateName)} - ${escapeHtml(r.unit)}`;
+    }
+    
+    html += `
+      <div class="history-item">
+        <div class="history-info">
+          <strong>${escapeHtml(r.receiptNo)}</strong>
+          <br>
+          ${escapeHtml(r.payer)}
+          <br>
+          <span style="font-size: 13px; color: #64748b;">Property: ${propertyText}</span>
+          <br>
+          <span style="font-weight: bold; color: var(--success);">${escapeHtml(currencySymbol)}${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div class="history-actions">
+          <button class="view-btn" data-no="${escapeHtml(r.receiptNo)}">View</button>
+          <button class="delete-btn" data-no="${escapeHtml(r.receiptNo)}">Delete</button>
+        </div>
+      </div>
+    `;
+  });
+  
+  resultsContainer.innerHTML = html;
+}
+
+// Section routing and sidebar link synchronization
+function showSection(sectionId) {
+  // Hide all sections
+  const sections = document.querySelectorAll(".page-section");
+  sections.forEach((section) => {
+    section.classList.add("hidden");
+  });
+
+  // Show target section
+  const targetSection = document.getElementById(sectionId);
+  if (targetSection) {
+    targetSection.classList.remove("hidden");
+
+    // Sync active state of navigation links
+    const navItems = document.querySelectorAll(".nav-item");
+    navItems.forEach((nav) => {
+      if (nav.getAttribute("data-section") === sectionId) {
+        nav.classList.add("active");
+      } else {
+        nav.classList.remove("active");
+      }
+    });
+
+    // Lazy load section specific data
+    if (sectionId === "estates") {
+      loadEstatesDetail();
+    } else if (sectionId === "history") {
+      loadHistoryDetail();
+    } else if (sectionId === "receipt") {
+      loadEstates();
+      updateEstateDropdown();
+    } else if (sectionId === "viewReceipt") {
+      // If there is no content inside receipt preview, add empty state message
+      const preview = document.getElementById("receiptPreview");
+      if (preview && preview.innerHTML.trim() === "") {
+        preview.innerHTML = "<p style='text-align: center; color: #64748b; padding: 40px 0;'>Select or create a receipt to view details</p>";
+      }
+    }
+  }
+}
+
+// Load Estates details on Estates Section
+async function loadEstatesDetail() {
+  const container = document.getElementById("estatesListContainer");
+
+  if (!container) return;
+
+  if (estates.length === 0) {
+    container.innerHTML =
+      "<p style='text-align: center; color: #64748b; padding: 20px 0;'>No properties added yet. Add one above to get started.</p>";
+    return;
+  }
+
+  let html = "";
+  estates.forEach((estate) => {
+    const unitsListHtml = estate.units && estate.units.length > 0
+      ? `<div class="estate-units-list">
+          <strong>Units:</strong>
+          ${estate.units.map(u => `<span class="unit-badge">${escapeHtml(u)}</span>`).join(" ")}
+         </div>`
+      : `<div class="estate-units-list" style="color: #64748b; font-style: italic;">No units configured</div>`;
+
+    html += `
+      <div class="estate-item">
+        <div class="estate-info">
+          <h3>${escapeHtml(estate.name)}</h3>
+          ${estate.location ? `<p class="estate-location">📍 ${escapeHtml(estate.location)}</p>` : ""}
+          ${unitsListHtml}
+        </div>
+        <div class="estate-actions">
+          <button class="edit-btn" data-id="${estate.id}">Edit</button>
+          <button class="delete-btn" data-id="${estate.id}">Delete</button>
+        </div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+// Backup Export Logic (including settings & properties)
+async function exportBackup() {
+  const receiptsData = await getAllReceipts();
+  
+  let savedEstates = [];
+  try {
+    const saved = localStorage.getItem("estates");
+    if (saved) savedEstates = JSON.parse(saved);
+  } catch (e) {
+    console.error("Error reading estates for backup", e);
+  }
+
+  let savedSettings = {};
+  try {
+    const saved = localStorage.getItem("businessSettings");
+    if (saved) savedSettings = JSON.parse(saved);
+  } catch (e) {
+    console.error("Error reading settings for backup", e);
+  }
+
+  const backupObj = {
+    app: "EstateReceiptManager",
+    version: 2,
+    exportDate: new Date().toISOString(),
+    receipts: receiptsData,
+    estates: savedEstates,
+    settings: savedSettings
+  };
+
+  const blob = new Blob([JSON.stringify(backupObj, null, 2)], {
     type: "application/json",
   });
 
   const a = document.createElement("a");
-
   a.href = URL.createObjectURL(blob);
-
-  a.download = "receipts-backup.json";
-
+  a.download = `estate-receipts-backup-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
 }
 
+// Backup Import Logic (with backward compatibility)
 async function importBackup(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -422,23 +1008,55 @@ async function importBackup(e) {
     const text = await file.text();
     const data = JSON.parse(text);
 
-    if (!Array.isArray(data)) {
+    let receiptsToImport = [];
+    
+    if (Array.isArray(data)) {
+      // Legacy backup format (only receipts array)
+      receiptsToImport = data;
+    } else if (data && data.receipts) {
+      // New complete backup format
+      receiptsToImport = data.receipts;
+      
+      // Import estates
+      if (data.estates && Array.isArray(data.estates) && data.estates.length > 0) {
+        if (confirm(`Restore ${data.estates.length} properties/estates from backup? (This will overwrite current properties)`)) {
+          localStorage.setItem("estates", JSON.stringify(data.estates));
+          loadEstates();
+        }
+      }
+      
+      // Import settings
+      if (data.settings && typeof data.settings === "object" && Object.keys(data.settings).length > 0) {
+        if (confirm("Restore business settings from backup? (This will overwrite current settings)")) {
+          localStorage.setItem("businessSettings", JSON.stringify(data.settings));
+          loadSettings();
+        }
+      }
+    } else {
       alert("Invalid backup file format");
       return;
     }
 
-    for (const r of data) {
-      await saveReceipt(r);
+    if (receiptsToImport.length > 0) {
+      for (const r of receiptsToImport) {
+        await saveReceipt(r);
+      }
+      alert(`Imported ${receiptsToImport.length} receipts successfully!`);
+    } else {
+      alert("No receipts found in backup file.");
     }
-    alert("Backup restored successfully");
+    
     loadHistory();
     loadDashboard();
   } catch (error) {
     alert("Error importing backup: " + error.message);
     console.error(error);
+  } finally {
+    e.target.value = ""; // Reset file selector
   }
 }
 
+// Service Worker PWA Register
 function registerSW() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
@@ -449,10 +1067,10 @@ function registerSW() {
   }
 }
 
+// Sequential/Random receipt no generation using settings prefix
 function generateReceiptNo() {
   try {
-    let saved = JSON.parse(localStorage.getItem("businessSettings"));
-    let prefix = saved?.prefix || "EST";
+    let prefix = settings.prefix || "EST";
     let date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     let random = Math.floor(Math.random() * 9000) + 1000;
     return `${prefix}-${date}-${random}`;
@@ -460,299 +1078,4 @@ function generateReceiptNo() {
     console.error("Error generating receipt number:", error);
     return `EST-${Date.now()}`;
   }
-}
-
-document.addEventListener("DOMContentLoaded", function () {
-  const logoUpload = document.getElementById("logoUpload");
-  if (logoUpload) {
-    logoUpload.addEventListener("change", function (e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function () {
-        settings.logo = reader.result;
-        const preview = document.getElementById("logoPreview");
-        if (preview) {
-          preview.src = reader.result;
-        }
-      };
-      reader.onerror = function () {
-        alert("Error reading file");
-      };
-      reader.readAsDataURL(file);
-    });
-    // ===== ESTATE → UNIT LINK (OPTION 2 CORE LOGIC) =====
-    const estateSelect = document.getElementById("estate");
-
-    if (estateSelect) {
-      estateSelect.addEventListener("change", function () {
-        const estateId = Number(this.value);
-        const unitSelect = document.getElementById("unit");
-
-        unitSelect.innerHTML = '<option value="">Select Unit</option>';
-
-        const estate = estates.find((e) => e.id === estateId);
-          
-        if (!estate || !estate.units) return;
-
-        estate.units.forEach((unit) => {
-          const option = document.createElement("option");
-          option.value = unit;
-          option.textContent = unit;
-          unitSelect.appendChild(option);
-        });
-      });
-    }
-  }
-
-  // Add Estate Button
-  const addEstateBtn = document.getElementById("addEstateBtn");
-  if (addEstateBtn) {
-    addEstateBtn.addEventListener("click", function () {
-      const name = document.getElementById("estateNameInput").value.trim();
-      const location = document
-        .getElementById("estateLocationInput")
-        .value.trim();
-      const unitsRaw = document.getElementById("estateUnitsInput").value.trim();
-      const units = unitsRaw
-        .split(",")
-        .map((u) => u.trim())
-        .filter((u) => u !== "");
-
-      if (!name) {
-        alert("Property name is required");
-        return;
-      }
-
-      if (editingEstateId) {
-        // Update Existing Estate
-        const estate = estates.find((e) => e.id === editingEstateId);
-
-        if (estate) {
-          estate.name = name;
-          estate.location = location;
-          estate.units = units;
-        }
-
-        localStorage.setItem("estates", JSON.stringify(estates));
-        editingEstateId = null;
-        document.getElementById("addEstateBtn").textContent = "Add Property";
-        alert("Property updated successfully!");
-      } else {
-        // Create New Estate
-        estates.push({
-          id: Date.now(),
-          name: name,
-          location: location,
-          units: units,
-        });
-        localStorage.setItem("estates", JSON.stringify(estates));
-        alert("Property added successfully!");
-      }
-
-      document.getElementById("estateNameInput").value = "";
-      document.getElementById("estateLocationInput").value = "";
-      document.getElementById("estateUnitsInput").value = "";
-
-      loadEstatesDetail();
-      updateEstateDropdown();
-    });
-  }
-
-  // Create Receipt Button
-  const createReceiptBtn = document.getElementById("createReceiptBtn");
-  if (createReceiptBtn) {
-    createReceiptBtn.addEventListener("click", function () {
-      // Set today's date as default
-      const today = new Date().toISOString().split('T')[0];
-      document.getElementById("paymentDate").value = today;
-      
-      // Ensure estates are loaded and dropdown is updated
-      loadEstates();
-      updateEstateDropdown();
-      
-      showSection("receipt");
-      const receiptNav = document.querySelector("[data-section='receipt']");
-      if (receiptNav) {
-        const navItems = document.querySelectorAll(".nav-item");
-        navItems.forEach((nav) => nav.classList.remove("active"));
-        receiptNav.classList.add("active");
-      }
-    });
-  }
-
-  // Edit Estate Button
-  const editEstateBtn = document.getElementById("editEstateBtn");
-  if (editEstateBtn) {
-    editEstateBtn.addEventListener("click", function () {
-      if (!editingEstateId) {
-        alert("Please click Edit on a property first");
-        return;
-      }
-
-      const name = document.getElementById("estateNameInput").value.trim();
-      const location = document
-        .getElementById("estateLocationInput")
-        .value.trim();
-      const unitsRaw = document.getElementById("estateUnitsInput").value.trim();
-      const units = unitsRaw
-        .split(",")
-        .map((u) => u.trim())
-        .filter((u) => u !== "");
-
-      if (!name) {
-        alert("Property name is required");
-        return;
-      }
-
-      const estate = estates.find((e) => e.id === editingEstateId);
-      if (estate) {
-        estate.name = name;
-        estate.location = location;
-        estate.units = units;
-      }
-
-      localStorage.setItem("estates", JSON.stringify(estates));
-      editingEstateId = null;
-      document.getElementById("addEstateBtn").textContent = "Add Property";
-      document.getElementById("estateNameInput").value = "";
-      document.getElementById("estateLocationInput").value = "";
-      document.getElementById("estateUnitsInput").value = "";
-
-      alert("Property updated successfully!");
-      loadEstatesDetail();
-      updateEstateDropdown();
-    });
-  }
-
-  // Hamburger Menu Toggle
-  const hamburgerBtn = document.getElementById("hamburgerBtn");
-  const sidebar = document.getElementById("sidebar");
-  const navItems = document.querySelectorAll(".nav-item");
-
-  if (hamburgerBtn && sidebar) {
-    hamburgerBtn.addEventListener("click", function () {
-      hamburgerBtn.classList.toggle("active");
-      sidebar.classList.toggle("active");
-    });
-
-    // Close sidebar when a nav item is clicked
-    navItems.forEach((item) => {
-      item.addEventListener("click", function (e) {
-        e.preventDefault();
-        hamburgerBtn.classList.remove("active");
-        sidebar.classList.remove("active");
-
-        // Get section from data attribute
-        const section = this.getAttribute("data-section");
-        showSection(section);
-
-        // Update active nav item
-        navItems.forEach((nav) => nav.classList.remove("active"));
-        this.classList.add("active");
-      });
-    });
-
-    // Close sidebar when clicking outside
-    document.addEventListener("click", function (e) {
-      if (
-        !sidebar.contains(e.target) &&
-        !hamburgerBtn.contains(e.target) &&
-        sidebar.classList.contains("active")
-      ) {
-        hamburgerBtn.classList.remove("active");
-        sidebar.classList.remove("active");
-      }
-    });
-  }
-
-  // Show dashboard by default
-  showSection("dashboard");
-  document.querySelector("[data-section='dashboard']").classList.add("active");
-});
-
-function showSection(sectionId) {
-  // Hide all sections
-  const sections = document.querySelectorAll(".page-section");
-  sections.forEach((section) => {
-    section.classList.add("hidden");
-  });
-
-  // Show selected section
-  const targetSection = document.getElementById(sectionId);
-  if (targetSection) {
-    targetSection.classList.remove("hidden");
-
-    // Load section-specific data
-    if (sectionId === "estates") {
-      loadEstatesDetail();
-    } else if (sectionId === "history") {
-      loadHistoryDetail();
-    } else if (sectionId === "receipt") {
-      // Ensure estates are loaded for dropdown
-      loadEstates();
-      updateEstateDropdown();
-    }
-  }
-}
-
-async function loadEstatesDetail() {
-  const container = document.getElementById("estatesListContainer");
-
-  if (!container) return;
-
-  if (estates.length === 0) {
-    container.innerHTML =
-      "<p style='text-align: center; color: #666;'>No properties added yet. Add one above to get started.</p>";
-    return;
-  }
-
-  let html = "";
-  estates.forEach((estate) => {
-    html += `
-      <div class="estate-item">
-        <div class="estate-info">
-          <h3>${escapeHtml(estate.name)}</h3>
-          ${estate.location ? `<p>${escapeHtml(estate.location)}</p>` : ""}
-        </div>
-        <div class="estate-actions">
-          <button class="edit-btn" onclick="editEstate(${estate.id})">Edit</button>
-          <button class="delete-btn" onclick="deleteEstate(${estate.id})">Delete</button>
-        </div>
-          
-      </div>
-    `;
-  });
-  container.innerHTML = html;
-}
-
-async function loadHistoryDetail() {
-  const data = await getAllReceipts();
-  const list = document.getElementById("historyDetailList");
-
-  if (data.length === 0) {
-    list.innerHTML = "<p>No receipts found</p>";
-    return;
-  }
-
-  let html = "";
-  data.reverse().forEach((r) => {
-    html += `
-      <div class="history-item">
-        <div class="history-info">
-          <strong>${escapeHtml(r.receiptNo)}</strong>
-          <br>
-          ${escapeHtml(r.payer)}
-          <br>
-          ₦${r.amount.toLocaleString()}
-        </div>
-        <div class="history-actions">
-          <button class="view-btn" onclick="viewReceipt('${escapeHtml(r.receiptNo)}');">View</button>
-          <button class="delete-btn" onclick="removeReceipt('${escapeHtml(r.receiptNo)}');">Delete</button>
-        </div>
-      </div>
-    `;
-  });
-  list.innerHTML = html;
 }
