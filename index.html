@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Estate Receipt Manager</title>
+    <title>Receipt Manager</title>
 
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="style.css" />
@@ -18,8 +18,8 @@
         <span></span>
       </button>
       <div class="brand" id="brandBtn" title="Go to Dashboard">
-        <h1>Estate Receipt Manager</h1>
-        <small> Offline Receipt System </small>
+        <h1>Receipt Manager</h1>
+        <small>Offline Receipt System for Any Business</small>
       </div>
       <button id="themeToggleBtn" class="theme-toggle" aria-label="Toggle Dark/Light Mode">
         <span class="theme-toggle-icon">🌓</span>
@@ -39,7 +39,7 @@
         >
         <a href="#search" class="nav-item" data-section="search">🔍 Search</a>
         <a href="#estates" class="nav-item" data-section="estates"
-          >🏢 Estates</a
+          >🏷️ Categories</a
         >
         <a href="#history" class="nav-item" data-section="history"
           >📋 History</a
@@ -84,9 +84,9 @@
           </button>
         </section>
 
-        <!-- Estates Overview -->
+        <!-- Category Overview -->
         <section class="card">
-          <h2>Estates Overview</h2>
+          <h2>Sales by Category</h2>
           <div id="estatesContainer"></div>
         </section>
 
@@ -109,36 +109,33 @@
           <h2>Create Receipt</h2>
 
           <form id="receiptForm">
-            <input type="text" id="payer" placeholder="Payer Name" required />
+            <input type="text" id="payer" placeholder="Customer Name" required />
 
             <input type="text" id="payerPhone" placeholder="Phone Number" />
 
             <select id="estate">
-              <option value="">Select Property</option>
+              <option value="">Select Category</option>
             </select>
 
             <select id="unit">
-              <option value="">Select Unit</option>
+              <option value="">Select Item</option>
             </select>
 
             <select id="paymentType">
+              <option value="Sale">Sale</option>
+              <option value="Service">Service</option>
               <option value="Rent">Rent</option>
-
-              <option value="Service Charge">Service Charge</option>
-
-              <option value="Maintenance">Maintenance</option>
-
-              <option value="Utility">Utility</option>
-
+              <option value="Subscription">Subscription</option>
+              <option value="Deposit">Deposit</option>
               <option value="Other">Other</option>
             </select>
 
             <div id="rentDurationFields" class="rent-duration-fields">
-              <label>Rent Duration</label>
+              <label>Payment Period</label>
               <div class="rent-duration-row">
-                <input type="date" id="rentPeriodStart" aria-label="Rent period start" />
+                <input type="date" id="rentPeriodStart" aria-label="Payment period start" />
                 <span class="rent-duration-separator">to</span>
-                <input type="date" id="rentPeriodEnd" aria-label="Rent period end" />
+                <input type="date" id="rentPeriodEnd" aria-label="Payment period end" />
               </div>
             </div>
 
@@ -182,14 +179,14 @@
         <section class="card">
           <h2>Search Receipts</h2>
           <div class="search-form-group">
-            <input type="text" id="searchBox" placeholder="Search by name, unit, or receipt number..." />
+            <input type="text" id="searchBox" placeholder="Search by customer, item, or receipt number..." />
             <button id="searchBtn">Search</button>
           </div>
           <div id="searchResults" class="search-results-container"></div>
         </section>
       </section>
 
-      <!-- Estates Section -->
+      <!-- Categories Section -->
       <section id="estates" class="page-section hidden">
         <div class="back-dashboard-container">
           <button class="back-dashboard-btn">
@@ -197,9 +194,8 @@
           </button>
         </div>
         <section class="card">
-          <h2>Manage Properties/Estates</h2>
+          <h2>Manage Categories</h2>
 
-          <!-- Add New Estate Form -->
           <div
             style="
               background: #f8fafc;
@@ -208,25 +204,24 @@
               margin-bottom: 20px;
             "
           >
-            <h3 style="margin-top: 0">Add New Property</h3>
+            <h3 style="margin-top: 0">Add New Category</h3>
             <div style="display: grid; gap: 10px">
               <input
                 type="text"
                 id="estateNameInput"
-                placeholder="Property Name (e.g., Block A, Flat 5, Shop 2)"
+                placeholder="Category Name (e.g., Products, Services, Branch A)"
                 required
               />
               <input
                 type="text"
                 id="estateLocationInput"
-                placeholder="Location/Address"
+                placeholder="Location / Description (optional)"
               />
-              <textarea name="" id="estateUnitsInput" placeholder=" Units separated by commas 
-                Shop1, Shop 2, shop 3, Flat A, Flat B, Flat C">
+              <textarea name="" id="estateUnitsInput" placeholder="Items separated by commas (e.g., Item 1, Item 2, Premium Plan)">
               </textarea>
               <div style="display: flex; gap: 10px">
                 <button id="addEstateBtn" style="flex: 1; background: #16a34a">
-                  Add Property
+                  Add Category
                 </button>
                 <button id="cancelEstateEditBtn" style="flex: 1; background: #64748b; display: none;">
                   Cancel
@@ -235,8 +230,7 @@
             </div>
           </div>
 
-          <!-- Estates List -->
-          <h3>Properties List</h3>
+          <h3>Categories List</h3>
           <div id="estatesListContainer"></div>
         </section>
       </section>
@@ -294,7 +288,7 @@
           <input type="email" id="email" />
 
           <label>Receipt Prefix</label>
-          <input type="text" id="prefix" placeholder="EST" />
+          <input type="text" id="prefix" placeholder="RCP" />
 
           <label>Currency Symbol</label>
           <input type="text" id="currency" value="₦" />

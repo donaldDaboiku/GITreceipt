@@ -4,7 +4,7 @@ let settings = {
   address: "",
   phone: "",
   email: "",
-  prefix: "EST",
+  prefix: "RCP",
   currency: "₦",
   footer: "",
   logo: "",
@@ -67,7 +67,7 @@ function saveSettings() {
   settings.address = document.getElementById("address").value.trim();
   settings.phone = document.getElementById("phone").value.trim();
   settings.email = document.getElementById("email").value.trim();
-  settings.prefix = document.getElementById("prefix").value.trim() || "EST";
+  settings.prefix = document.getElementById("prefix").value.trim() || "RCP";
   settings.currency = document.getElementById("currency").value.trim() || "₦";
   settings.footer = document.getElementById("footer").value.trim();
 
@@ -89,7 +89,7 @@ function loadSettings() {
   document.getElementById("address").value = settings.address || "";
   document.getElementById("phone").value = settings.phone || "";
   document.getElementById("email").value = settings.email || "";
-  document.getElementById("prefix").value = settings.prefix || "EST";
+  document.getElementById("prefix").value = settings.prefix || "RCP";
   document.getElementById("currency").value = settings.currency || "₦";
   document.getElementById("footer").value = settings.footer || "";
 
@@ -105,7 +105,7 @@ function loadSettings() {
   }
 }
 
-// Estates/Properties Management
+// Categories Management
 function saveEstate(estate) {
   estates.push({
     id: Date.now(),
@@ -133,7 +133,7 @@ function loadEstates() {
 }
 
 function deleteEstate(id) {
-  if (!confirm("Are you sure you want to delete this property? All associated unit information will remain on past receipts, but the property will be removed from selection.")) return;
+  if (!confirm("Are you sure you want to delete this category? Past receipts will keep their details, but this category will be removed from selection.")) return;
   estates = estates.filter((e) => e.id !== id);
   localStorage.setItem("estates", JSON.stringify(estates));
   
@@ -156,7 +156,7 @@ function editEstate(id) {
   document.getElementById("estateLocationInput").value = estate.location || "";
   document.getElementById("estateUnitsInput").value = (estate.units || []).join(", ");
   
-  document.getElementById("addEstateBtn").textContent = "Update Property";
+  document.getElementById("addEstateBtn").textContent = "Update Category";
   const cancelBtn = document.getElementById("cancelEstateEditBtn");
   if (cancelBtn) {
     cancelBtn.style.display = "block";
@@ -175,7 +175,7 @@ function cancelEstateEditing() {
   document.getElementById("estateLocationInput").value = "";
   document.getElementById("estateUnitsInput").value = "";
   
-  document.getElementById("addEstateBtn").textContent = "Add Property";
+  document.getElementById("addEstateBtn").textContent = "Add Category";
   const cancelBtn = document.getElementById("cancelEstateEditBtn");
   if (cancelBtn) {
     cancelBtn.style.display = "none";
@@ -188,7 +188,7 @@ function updateEstateDropdown() {
 
   if (!estateSelect || !unitSelect) return;
 
-  estateSelect.innerHTML = '<option value="">Select Property</option>';
+  estateSelect.innerHTML = '<option value="">Select Category</option>';
   estates.forEach((e) => {
     const option = document.createElement("option");
     option.value = e.id;
@@ -196,7 +196,7 @@ function updateEstateDropdown() {
     estateSelect.appendChild(option);
   });
 
-  unitSelect.innerHTML = '<option value="">Select Unit</option>';
+  unitSelect.innerHTML = '<option value="">Select Item</option>';
 }
 
 // Global Event Registration
@@ -267,7 +267,7 @@ function registerEvents() {
       const unitSelect = document.getElementById("unit");
       if (!unitSelect) return;
 
-      unitSelect.innerHTML = '<option value="">Select Unit</option>';
+      unitSelect.innerHTML = '<option value="">Select Item</option>';
 
       const estate = estates.find((e) => e.id === estateId);
       if (!estate || !estate.units) return;
@@ -283,8 +283,8 @@ function registerEvents() {
 
   const paymentTypeSelect = document.getElementById("paymentType");
   if (paymentTypeSelect) {
-    paymentTypeSelect.addEventListener("change", toggleRentDurationFields);
-    toggleRentDurationFields();
+    paymentTypeSelect.addEventListener("change", togglePaymentPeriodFields);
+    togglePaymentPeriodFields();
   }
 
   // Add/Update Estate Trigger
@@ -301,7 +301,7 @@ function registerEvents() {
         .filter((u) => u !== "");
 
       if (!name) {
-        alert("Property name is required");
+        alert("Category name is required");
         return;
       }
 
@@ -316,12 +316,12 @@ function registerEvents() {
 
         localStorage.setItem("estates", JSON.stringify(estates));
         editingEstateId = null;
-        document.getElementById("addEstateBtn").textContent = "Add Property";
+        document.getElementById("addEstateBtn").textContent = "Add Category";
         
         const cancelBtn = document.getElementById("cancelEstateEditBtn");
         if (cancelBtn) cancelBtn.style.display = "none";
         
-        alert("Property updated successfully!");
+        alert("Category updated successfully!");
       } else {
         // Create
         estates.push({
@@ -331,7 +331,7 @@ function registerEvents() {
           units: units,
         });
         localStorage.setItem("estates", JSON.stringify(estates));
-        alert("Property added successfully!");
+        alert("Category added successfully!");
       }
 
       document.getElementById("estateNameInput").value = "";
@@ -472,7 +472,7 @@ async function createReceipt(e) {
 
   const payer = document.getElementById("payer").value.trim();
   if (!payer) {
-    alert("Payer name is required");
+    alert("Customer name is required");
     return;
   }
 
@@ -496,9 +496,10 @@ async function createReceipt(e) {
   const paymentType = document.getElementById("paymentType").value;
   const rentPeriodStart = document.getElementById("rentPeriodStart")?.value || "";
   const rentPeriodEnd = document.getElementById("rentPeriodEnd")?.value || "";
+  const hasPeriod = paymentTypeHasPeriod(paymentType);
 
-  if (paymentType === "Rent" && rentPeriodStart && rentPeriodEnd && rentPeriodEnd < rentPeriodStart) {
-    alert("Rent period end date must be on or after the start date");
+  if (hasPeriod && rentPeriodStart && rentPeriodEnd && rentPeriodEnd < rentPeriodStart) {
+    alert("Payment period end date must be on or after the start date");
     return;
   }
 
@@ -510,8 +511,8 @@ async function createReceipt(e) {
     estateName: estateName,
     unit: document.getElementById("unit").value.trim(),
     paymentType: paymentType,
-    rentPeriodStart: paymentType === "Rent" ? rentPeriodStart : "",
-    rentPeriodEnd: paymentType === "Rent" ? rentPeriodEnd : "",
+    rentPeriodStart: hasPeriod ? rentPeriodStart : "",
+    rentPeriodEnd: hasPeriod ? rentPeriodEnd : "",
     amount: amount,
     paymentMethod: document.getElementById("paymentMethod").value,
     remarks: document.getElementById("remarks").value.trim(),
@@ -523,7 +524,7 @@ async function createReceipt(e) {
   showReceipt(receipt);
   
   document.getElementById("receiptForm").reset();
-  toggleRentDurationFields();
+  togglePaymentPeriodFields();
   
   loadHistory();
   loadDashboard();
@@ -537,15 +538,27 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function toggleRentDurationFields() {
+function paymentTypeHasPeriod(paymentType) {
+  return ["Rent", "Subscription", "Service"].includes(paymentType);
+}
+
+function formatCategoryItem(receipt) {
+  let text = receipt.unit || "N/A";
+  if (receipt.estateName) {
+    text = `${receipt.estateName} - ${receipt.unit || "N/A"}`;
+  }
+  return text;
+}
+
+function togglePaymentPeriodFields() {
   const paymentType = document.getElementById("paymentType");
-  const rentFields = document.getElementById("rentDurationFields");
-  if (!paymentType || !rentFields) return;
+  const periodFields = document.getElementById("rentDurationFields");
+  if (!paymentType || !periodFields) return;
 
-  const isRent = paymentType.value === "Rent";
-  rentFields.style.display = isRent ? "block" : "none";
+  const showPeriod = paymentTypeHasPeriod(paymentType.value);
+  periodFields.style.display = showPeriod ? "block" : "none";
 
-  if (!isRent) {
+  if (!showPeriod) {
     const startInput = document.getElementById("rentPeriodStart");
     const endInput = document.getElementById("rentPeriodEnd");
     if (startInput) startInput.value = "";
@@ -564,7 +577,7 @@ function formatDisplayDate(dateStr) {
   });
 }
 
-function formatRentDuration(start, end) {
+function formatPaymentPeriod(start, end) {
   if (!start && !end) return "";
   if (start && end) {
     return `${formatDisplayDate(start)} – ${formatDisplayDate(end)}`;
@@ -605,11 +618,8 @@ function showReceipt(r, containerId = "receiptPreview") {
     ? `<p class="receipt-footer-message">${escapeHtml(settings.footer)}</p>`
     : `<p class="receipt-footer-message">Thank you for your payment!</p>`;
 
-  // Format Property String
-  let propertyStr = escapeHtml(r.unit || "N/A");
-  if (r.estateName) {
-    propertyStr = `${escapeHtml(r.estateName)} - ${escapeHtml(r.unit)}`;
-  }
+  // Format category / item string
+  const categoryItemStr = escapeHtml(formatCategoryItem(r));
 
   preview.innerHTML = `
     <div class="receipt-card">
@@ -626,7 +636,7 @@ function showReceipt(r, containerId = "receiptPreview") {
         
         <div class="receipt-card-body">
             <div class="receipt-row">
-                <label>Received From</label>
+                <label>Customer</label>
                 <span>${escapeHtml(r.payer)}</span>
             </div>
             
@@ -638,8 +648,8 @@ function showReceipt(r, containerId = "receiptPreview") {
             ` : ""}
             
             <div class="receipt-row">
-                <label>Property/Unit</label>
-                <span>${propertyStr}</span>
+                <label>Category / Item</label>
+                <span>${categoryItemStr}</span>
             </div>
             
             <div class="receipt-row">
@@ -649,8 +659,8 @@ function showReceipt(r, containerId = "receiptPreview") {
             
             ${r.rentPeriodStart || r.rentPeriodEnd ? `
             <div class="receipt-row">
-                <label>Rent Duration</label>
-                <span>${escapeHtml(formatRentDuration(r.rentPeriodStart, r.rentPeriodEnd))}</span>
+                <label>Payment Period</label>
+                <span>${escapeHtml(formatPaymentPeriod(r.rentPeriodStart, r.rentPeriodEnd))}</span>
             </div>
             ` : ""}
             
@@ -743,7 +753,7 @@ async function loadEstatesOverview(data) {
   if (!container) return;
 
   if (estatesList.length === 0) {
-    container.innerHTML = "<p style='text-align: center; color: #64748b;'>No estate transactions recorded yet.</p>";
+    container.innerHTML = "<p style='text-align: center; color: #64748b;'>No sales recorded yet.</p>";
     return;
   }
 
@@ -780,10 +790,7 @@ async function loadHistory() {
   const currencySymbol = settings.currency || "₦";
   let html = "";
   [...receipts].reverse().forEach((r) => {
-    let propertyText = escapeHtml(r.unit || "N/A");
-    if (r.estateName) {
-      propertyText = `${escapeHtml(r.estateName)} - ${escapeHtml(r.unit)}`;
-    }
+    let categoryText = escapeHtml(formatCategoryItem(r));
 
     html += `
       <div class="history-item">
@@ -792,7 +799,7 @@ async function loadHistory() {
           <br>
           ${escapeHtml(r.payer)}
           <br>
-          <span style="font-size: 13px; color: #64748b;">Property: ${propertyText}</span>
+          <span style="font-size: 13px; color: #64748b;">${categoryText}</span>
           <br>
           <span style="font-weight: bold; color: var(--success);">${escapeHtml(currencySymbol)}${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
         </div>
@@ -819,10 +826,7 @@ async function loadHistoryDetail() {
   const currencySymbol = settings.currency || "₦";
   let html = "";
   [...data].reverse().forEach((r) => {
-    let propertyText = escapeHtml(r.unit || "N/A");
-    if (r.estateName) {
-      propertyText = `${escapeHtml(r.estateName)} - ${escapeHtml(r.unit)}`;
-    }
+    let categoryText = escapeHtml(formatCategoryItem(r));
 
     html += `
       <div class="history-item">
@@ -831,7 +835,7 @@ async function loadHistoryDetail() {
           <br>
           ${escapeHtml(r.payer)}
           <br>
-          <span style="font-size: 13px; color: #64748b;">Property: ${propertyText}</span>
+          <span style="font-size: 13px; color: #64748b;">${categoryText}</span>
           <br>
           <span style="font-weight: bold; color: var(--success);">${escapeHtml(currencySymbol)}${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
         </div>
@@ -882,7 +886,7 @@ async function searchReceipt() {
   if (!resultsContainer) return;
 
   if (!query) {
-    resultsContainer.innerHTML = "<p style='text-align: center; color: #64748b; padding: 10px 0;'>Please enter a search query (name, unit, or receipt number)</p>";
+    resultsContainer.innerHTML = "<p style='text-align: center; color: #64748b; padding: 10px 0;'>Please enter a search query (customer, item, or receipt number)</p>";
     return;
   }
 
@@ -914,10 +918,7 @@ async function searchReceipt() {
   let html = `<h3 style="margin-bottom: 15px; font-size: 16px; color: var(--primary);">Search Results (${matches.length})</h3>`;
   
   matches.reverse().forEach((r) => {
-    let propertyText = escapeHtml(r.unit || "N/A");
-    if (r.estateName) {
-      propertyText = `${escapeHtml(r.estateName)} - ${escapeHtml(r.unit)}`;
-    }
+    const categoryText = escapeHtml(formatCategoryItem(r));
     
     html += `
       <div class="history-item">
@@ -926,7 +927,7 @@ async function searchReceipt() {
           <br>
           ${escapeHtml(r.payer)}
           <br>
-          <span style="font-size: 13px; color: #64748b;">Property: ${propertyText}</span>
+          <span style="font-size: 13px; color: #64748b;">${categoryText}</span>
           <br>
           <span style="font-weight: bold; color: var(--success);">${escapeHtml(currencySymbol)}${r.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
         </div>
@@ -972,7 +973,7 @@ function showSection(sectionId) {
     } else if (sectionId === "receipt") {
       loadEstates();
       updateEstateDropdown();
-      toggleRentDurationFields();
+      togglePaymentPeriodFields();
     } else if (sectionId === "viewReceipt") {
       // If there is no content inside receipt preview, add empty state message
       const preview = document.getElementById("receiptPreview");
@@ -991,7 +992,7 @@ async function loadEstatesDetail() {
 
   if (estates.length === 0) {
     container.innerHTML =
-      "<p style='text-align: center; color: #64748b; padding: 20px 0;'>No properties added yet. Add one above to get started.</p>";
+      "<p style='text-align: center; color: #64748b; padding: 20px 0;'>No categories added yet. Add one above to get started.</p>";
     return;
   }
 
@@ -999,10 +1000,10 @@ async function loadEstatesDetail() {
   estates.forEach((estate) => {
     const unitsListHtml = estate.units && estate.units.length > 0
       ? `<div class="estate-units-list">
-          <strong>Units:</strong>
+          <strong>Items:</strong>
           ${estate.units.map(u => `<span class="unit-badge">${escapeHtml(u)}</span>`).join(" ")}
          </div>`
-      : `<div class="estate-units-list" style="color: #64748b; font-style: italic;">No units configured</div>`;
+      : `<div class="estate-units-list" style="color: #64748b; font-style: italic;">No items configured</div>`;
 
     html += `
       <div class="estate-item">
@@ -1042,7 +1043,7 @@ async function exportBackup() {
   }
 
   const backupObj = {
-    app: "EstateReceiptManager",
+    app: "ReceiptManager",
     version: 2,
     exportDate: new Date().toISOString(),
     receipts: receiptsData,
@@ -1056,7 +1057,7 @@ async function exportBackup() {
 
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `estate-receipts-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `receipts-backup-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
 }
 
@@ -1080,7 +1081,7 @@ async function importBackup(e) {
       
       // Import estates
       if (data.estates && Array.isArray(data.estates) && data.estates.length > 0) {
-        if (confirm(`Restore ${data.estates.length} properties/estates from backup? (This will overwrite current properties)`)) {
+        if (confirm(`Restore ${data.estates.length} categories from backup? (This will overwrite current categories)`)) {
           localStorage.setItem("estates", JSON.stringify(data.estates));
           loadEstates();
         }
@@ -1131,12 +1132,12 @@ function registerSW() {
 // Sequential/Random receipt no generation using settings prefix
 function generateReceiptNo() {
   try {
-    let prefix = settings.prefix || "EST";
+    let prefix = settings.prefix || "RCP";
     let date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     let random = Math.floor(Math.random() * 9000) + 1000;
     return `${prefix}-${date}-${random}`;
   } catch (error) {
     console.error("Error generating receipt number:", error);
-    return `EST-${Date.now()}`;
+    return `RCP-${Date.now()}`;
   }
 }

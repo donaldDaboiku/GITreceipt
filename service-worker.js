@@ -1,4 +1,4 @@
-const CACHE = "estate-v1";
+const CACHE = "receipt-v2";
 
 const FILES = [
   "./",
