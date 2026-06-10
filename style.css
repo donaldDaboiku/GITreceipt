@@ -360,6 +360,30 @@ textarea {
   min-height: 100px;
 }
 
+.rent-duration-fields label {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.rent-duration-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.rent-duration-row input {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.rent-duration-separator {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 /* Dynamic Forms Settings Details */
 .settings-container {
   max-width: 100%;

@@ -133,6 +133,15 @@
               <option value="Other">Other</option>
             </select>
 
+            <div id="rentDurationFields" class="rent-duration-fields">
+              <label>Rent Duration</label>
+              <div class="rent-duration-row">
+                <input type="date" id="rentPeriodStart" aria-label="Rent period start" />
+                <span class="rent-duration-separator">to</span>
+                <input type="date" id="rentPeriodEnd" aria-label="Rent period end" />
+              </div>
+            </div>
+
             <input type="number" id="amount" placeholder="Amount" required />
 
             <label for="paymentDate" style="margin-top: 10px; font-weight: bold;">Date of Payment</label>

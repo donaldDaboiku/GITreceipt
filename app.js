@@ -281,6 +281,12 @@ function registerEvents() {
     });
   }
 
+  const paymentTypeSelect = document.getElementById("paymentType");
+  if (paymentTypeSelect) {
+    paymentTypeSelect.addEventListener("change", toggleRentDurationFields);
+    toggleRentDurationFields();
+  }
+
   // Add/Update Estate Trigger
   const addEstateBtn = document.getElementById("addEstateBtn");
   if (addEstateBtn) {
@@ -487,6 +493,15 @@ async function createReceipt(e) {
     }
   }
 
+  const paymentType = document.getElementById("paymentType").value;
+  const rentPeriodStart = document.getElementById("rentPeriodStart")?.value || "";
+  const rentPeriodEnd = document.getElementById("rentPeriodEnd")?.value || "";
+
+  if (paymentType === "Rent" && rentPeriodStart && rentPeriodEnd && rentPeriodEnd < rentPeriodStart) {
+    alert("Rent period end date must be on or after the start date");
+    return;
+  }
+
   const receipt = {
     receiptNo: generateReceiptNo(),
     payer: payer,
@@ -494,7 +509,9 @@ async function createReceipt(e) {
     estateId: selectedEstateId ? Number(selectedEstateId) : null,
     estateName: estateName,
     unit: document.getElementById("unit").value.trim(),
-    paymentType: document.getElementById("paymentType").value,
+    paymentType: paymentType,
+    rentPeriodStart: paymentType === "Rent" ? rentPeriodStart : "",
+    rentPeriodEnd: paymentType === "Rent" ? rentPeriodEnd : "",
     amount: amount,
     paymentMethod: document.getElementById("paymentMethod").value,
     remarks: document.getElementById("remarks").value.trim(),
@@ -506,6 +523,7 @@ async function createReceipt(e) {
   showReceipt(receipt);
   
   document.getElementById("receiptForm").reset();
+  toggleRentDurationFields();
   
   loadHistory();
   loadDashboard();
@@ -517,6 +535,41 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+function toggleRentDurationFields() {
+  const paymentType = document.getElementById("paymentType");
+  const rentFields = document.getElementById("rentDurationFields");
+  if (!paymentType || !rentFields) return;
+
+  const isRent = paymentType.value === "Rent";
+  rentFields.style.display = isRent ? "block" : "none";
+
+  if (!isRent) {
+    const startInput = document.getElementById("rentPeriodStart");
+    const endInput = document.getElementById("rentPeriodEnd");
+    if (startInput) startInput.value = "";
+    if (endInput) endInput.value = "";
+  }
+}
+
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr + "T00:00:00");
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatRentDuration(start, end) {
+  if (!start && !end) return "";
+  if (start && end) {
+    return `${formatDisplayDate(start)} – ${formatDisplayDate(end)}`;
+  }
+  return formatDisplayDate(start || end);
 }
 
 // Render dynamic, premium receipt layout
@@ -593,6 +646,13 @@ function showReceipt(r, containerId = "receiptPreview") {
                 <label>Payment For</label>
                 <span>${escapeHtml(r.paymentType)}</span>
             </div>
+            
+            ${r.rentPeriodStart || r.rentPeriodEnd ? `
+            <div class="receipt-row">
+                <label>Rent Duration</label>
+                <span>${escapeHtml(formatRentDuration(r.rentPeriodStart, r.rentPeriodEnd))}</span>
+            </div>
+            ` : ""}
             
             <div class="receipt-row">
                 <label>Payment Method</label>
@@ -912,6 +972,7 @@ function showSection(sectionId) {
     } else if (sectionId === "receipt") {
       loadEstates();
       updateEstateDropdown();
+      toggleRentDurationFields();
     } else if (sectionId === "viewReceipt") {
       // If there is no content inside receipt preview, add empty state message
       const preview = document.getElementById("receiptPreview");
