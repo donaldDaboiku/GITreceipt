@@ -1,4 +1,4 @@
-const CACHE = "receipt-v2";
+const CACHE = "receipt-v4";
 
 const FILES = [
   "./",

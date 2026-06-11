@@ -8,6 +8,9 @@ let settings = {
   currency: "₦",
   footer: "",
   logo: "",
+  signature: "",
+  signatoryName: "",
+  signatoryTitle: "",
 };
 let estates = [];
 let editingEstateId = null;
@@ -70,6 +73,8 @@ function saveSettings() {
   settings.prefix = document.getElementById("prefix").value.trim() || "RCP";
   settings.currency = document.getElementById("currency").value.trim() || "₦";
   settings.footer = document.getElementById("footer").value.trim();
+  settings.signatoryName = document.getElementById("signatoryName").value.trim();
+  settings.signatoryTitle = document.getElementById("signatoryTitle").value.trim();
 
   localStorage.setItem("businessSettings", JSON.stringify(settings));
   alert("Settings Saved Successfully!");
@@ -92,6 +97,8 @@ function loadSettings() {
   document.getElementById("prefix").value = settings.prefix || "RCP";
   document.getElementById("currency").value = settings.currency || "₦";
   document.getElementById("footer").value = settings.footer || "";
+  document.getElementById("signatoryName").value = settings.signatoryName || "";
+  document.getElementById("signatoryTitle").value = settings.signatoryTitle || "";
 
   const logoPreview = document.getElementById("logoPreview");
   if (logoPreview) {
@@ -101,6 +108,17 @@ function loadSettings() {
     } else {
       logoPreview.src = "";
       logoPreview.style.display = "none";
+    }
+  }
+
+  const signaturePreview = document.getElementById("signaturePreview");
+  if (signaturePreview) {
+    if (settings.signature) {
+      signaturePreview.src = settings.signature;
+      signaturePreview.style.display = "block";
+    } else {
+      signaturePreview.src = "";
+      signaturePreview.style.display = "none";
     }
   }
 }
@@ -254,6 +272,28 @@ function registerEvents() {
       };
       reader.onerror = function () {
         alert("Error reading logo file");
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const signatureUpload = document.getElementById("signatureUpload");
+  if (signatureUpload) {
+    signatureUpload.addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function () {
+        settings.signature = reader.result;
+        const preview = document.getElementById("signaturePreview");
+        if (preview) {
+          preview.src = reader.result;
+          preview.style.display = "block";
+        }
+      };
+      reader.onerror = function () {
+        alert("Error reading signature file");
       };
       reader.readAsDataURL(file);
     });
@@ -518,7 +558,14 @@ async function createReceipt(e) {
     remarks: document.getElementById("remarks").value.trim(),
     paymentDate: paymentDate,
     date: new Date().toLocaleString(),
+    signedAt: new Date().toISOString(),
+    signatoryName: settings.signatoryName || "",
+    signatoryTitle: settings.signatoryTitle || "",
+    signature: settings.signature || "",
+    verificationCode: "",
   };
+
+  receipt.verificationCode = generateVerificationCode(receipt);
 
   await saveReceipt(receipt);
   showReceipt(receipt);
@@ -583,6 +630,150 @@ function formatPaymentPeriod(start, end) {
     return `${formatDisplayDate(start)} – ${formatDisplayDate(end)}`;
   }
   return formatDisplayDate(start || end);
+}
+
+function formatSignedDate(isoOrDisplayDate) {
+  if (!isoOrDisplayDate) return "";
+  const date = new Date(isoOrDisplayDate);
+  if (Number.isNaN(date.getTime())) return isoOrDisplayDate;
+  return date.toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function generateVerificationCode(receipt) {
+  const payload = [
+    receipt.receiptNo,
+    receipt.payer,
+    receipt.amount,
+    receipt.paymentDate,
+    settings.businessName || "",
+    receipt.signedAt || receipt.date || "",
+  ].join("|");
+
+  let hash = 5381;
+  for (let i = 0; i < payload.length; i++) {
+    hash = ((hash << 5) + hash) ^ payload.charCodeAt(i);
+  }
+  return (Math.abs(hash) >>> 0).toString(16).toUpperCase().padStart(8, "0").slice(0, 8);
+}
+
+function buildSignatureBlock(receipt) {
+  const signatureSrc = receipt.signature || settings.signature;
+  const signatoryName = receipt.signatoryName || settings.signatoryName;
+  const signatoryTitle = receipt.signatoryTitle || settings.signatoryTitle;
+  const signedAt = receipt.signedAt || receipt.date;
+  const verificationCode =
+    receipt.verificationCode || generateVerificationCode(receipt);
+
+  const signatureImageHtml = signatureSrc
+    ? `<img src="${signatureSrc}" class="signature-image" alt="Authorized signature" />`
+    : `<div class="signature-line"></div>`;
+
+  const signatoryHtml =
+    signatoryName || signatoryTitle
+      ? `<div class="signatory-details">
+          ${signatoryName ? `<strong>${escapeHtml(signatoryName)}</strong>` : ""}
+          ${signatoryTitle ? `<span>${escapeHtml(signatoryTitle)}</span>` : ""}
+         </div>`
+      : `<small class="signature-label">Authorized Signature</small>`;
+
+  return `
+    <div class="receipt-card-signature">
+      ${signatureImageHtml}
+      ${signatoryHtml}
+      <div class="receipt-authenticity">
+        <span class="auth-badge">✓ Digitally Signed</span>
+        <small>Signed on ${escapeHtml(formatSignedDate(signedAt))}</small>
+        <small class="auth-code">Verification Code: ${escapeHtml(verificationCode)}</small>
+        <small class="auth-note">This receipt is electronically generated. Confirm authenticity using the verification code above.</small>
+      </div>
+    </div>
+  `;
+}
+
+function buildReceiptShareText(receipt) {
+  const currencySymbol = settings.currency || "₦";
+  const verificationCode =
+    receipt.verificationCode || generateVerificationCode(receipt);
+  const signatoryName = receipt.signatoryName || settings.signatoryName;
+  const signatoryTitle = receipt.signatoryTitle || settings.signatoryTitle;
+  const signedAt = formatSignedDate(receipt.signedAt || receipt.date);
+  const amount = `${currencySymbol}${Number(receipt.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const lines = [
+    "PAYMENT RECEIPT",
+    "================",
+    settings.businessName || "Receipt Manager",
+    settings.address || "",
+    [settings.phone, settings.email].filter(Boolean).join(" | ""),
+    "",
+    `Receipt No: ${receipt.receiptNo}`,
+    `Customer: ${receipt.payer}`,
+  ];
+
+  if (receipt.phone) lines.push(`Phone: ${receipt.phone}`);
+  lines.push(`Category / Item: ${formatCategoryItem(receipt)}`);
+  lines.push(`Payment For: ${receipt.paymentType}`);
+
+  if (receipt.rentPeriodStart || receipt.rentPeriodEnd) {
+    lines.push(`Payment Period: ${formatPaymentPeriod(receipt.rentPeriodStart, receipt.rentPeriodEnd)}`);
+  }
+
+  lines.push(
+    `Payment Method: ${receipt.paymentMethod}`,
+    `Amount Paid: ${amount}`,
+    `Payment Date: ${receipt.paymentDate || receipt.date}`,
+    `Issue Date: ${receipt.date}`,
+  );
+
+  if (receipt.remarks) lines.push(`Remarks: ${receipt.remarks}`);
+
+  lines.push(
+    "",
+    `Verification Code: ${verificationCode}`,
+  );
+
+  if (signatoryName || signatoryTitle) {
+    lines.push(`Signed by: ${[signatoryName, signatoryTitle].filter(Boolean).join(", ")}`);
+  }
+  if (signedAt) lines.push(`Signed on: ${signedAt}`);
+
+  lines.push("", settings.footer || "Thank you for your payment!");
+
+  return lines.filter((line, index, arr) => !(line === "" && arr[index - 1] === "")).join("\n");
+}
+
+function normalizeWhatsAppPhone(phone) {
+  if (!phone) return "";
+  let digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0")) {
+    digits = "234" + digits.slice(1);
+  } else if (digits.length === 10) {
+    digits = "234" + digits;
+  }
+  return digits;
+}
+
+function shareReceiptViaWhatsApp(receipt) {
+  const text = encodeURIComponent(buildReceiptShareText(receipt));
+  const customerPhone = normalizeWhatsAppPhone(receipt.phone);
+  const url = customerPhone
+    ? `https://wa.me/${customerPhone}?text=${text}`
+    : `https://wa.me/?text=${text}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function shareReceiptViaEmail(receipt) {
+  const subject = encodeURIComponent(
+    `Payment Receipt ${receipt.receiptNo}${settings.businessName ? ` - ${settings.businessName}` : ""}`,
+  );
+  const body = encodeURIComponent(buildReceiptShareText(receipt));
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
 // Render dynamic, premium receipt layout
@@ -692,14 +883,15 @@ function showReceipt(r, containerId = "receiptPreview") {
             ` : ""}
         </div>
         
-        <div class="receipt-card-signature">
-            <div class="signature-line"></div>
-            <small>Authorized Signature / Stamp</small>
-        </div>
+        ${buildSignatureBlock(r)}
         
         <div class="receipt-card-footer">
             ${footerMessageHtml}
-            <button class="print-btn">🖨️ Print Receipt</button>
+            <div class="receipt-share-actions">
+              <button type="button" class="share-btn whatsapp-btn">💬 WhatsApp</button>
+              <button type="button" class="share-btn email-btn">✉️ Email</button>
+              <button type="button" class="print-btn">🖨️ Print</button>
+            </div>
         </div>
     </div>
   `;
@@ -709,6 +901,20 @@ function showReceipt(r, containerId = "receiptPreview") {
   if (printBtn) {
     printBtn.addEventListener("click", () => {
       window.print();
+    });
+  }
+
+  const whatsappBtn = preview.querySelector(".whatsapp-btn");
+  if (whatsappBtn) {
+    whatsappBtn.addEventListener("click", () => {
+      shareReceiptViaWhatsApp(r);
+    });
+  }
+
+  const emailBtn = preview.querySelector(".email-btn");
+  if (emailBtn) {
+    emailBtn.addEventListener("click", () => {
+      shareReceiptViaEmail(r);
     });
   }
 }

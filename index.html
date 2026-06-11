@@ -303,6 +303,24 @@
             <img id="logoPreview" width="120" />
           </div>
 
+          <h3 style="margin-top: 24px; margin-bottom: 8px;">Digital Signature</h3>
+          <p style="font-size: 13px; color: #64748b; margin-top: 0; margin-bottom: 16px;">
+            Upload your signature and signatory details. They appear on every receipt with a verification code.
+          </p>
+
+          <label>Signatory Name</label>
+          <input type="text" id="signatoryName" placeholder="e.g., Jane Doe" />
+
+          <label>Signatory Title</label>
+          <input type="text" id="signatoryTitle" placeholder="e.g., Manager, Director" />
+
+          <label>Upload Signature</label>
+          <input type="file" id="signatureUpload" accept="image/*" />
+
+          <div class="signature-preview">
+            <img id="signaturePreview" alt="Signature preview" />
+          </div>
+
           <button id="saveSettingsBtn">Save Settings</button>
         </div>
       </section>
