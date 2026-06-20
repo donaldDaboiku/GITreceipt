@@ -1046,6 +1046,63 @@ body.dark .estate-overview-card {
   gap: 10px;
 }
 
+.share-format-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.share-format-row label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.share-format-select {
+  flex: 1;
+  max-width: 180px;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.receipt-card.receipt-capture {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.receipt-card.receipt-capture .receipt-share-actions,
+.receipt-card.receipt-capture .share-format-row,
+.receipt-card.receipt-capture .print-btn {
+  display: none !important;
+}
+
+.receipt-card.receipt-capture .receipt-row label,
+.receipt-card.receipt-capture .receipt-biz-address,
+.receipt-card.receipt-capture .receipt-biz-contact,
+.receipt-card.receipt-capture .receipt-footer-message,
+.receipt-card.receipt-capture .receipt-authenticity small {
+  color: #64748b !important;
+}
+
+.receipt-card.receipt-capture .receipt-row span,
+.receipt-card.receipt-capture .receipt-biz-name,
+.receipt-card.receipt-capture .signatory-details strong {
+  color: #0f172a !important;
+}
+
+.receipt-card.receipt-capture .receipt-row.highlight {
+  background: #eff6ff !important;
+}
+
+.receipt-card.receipt-capture .receipt-row.highlight label,
+.receipt-card.receipt-capture .receipt-row.highlight .amount {
+  color: #2563eb !important;
+}
+
 .receipt-share-actions .print-btn {
   grid-column: 1 / -1;
 }

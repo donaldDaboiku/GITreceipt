@@ -801,21 +801,144 @@ function normalizeWhatsAppPhone(phone) {
   return digits;
 }
 
-function shareReceiptViaWhatsApp(receipt) {
-  const text = encodeURIComponent(buildReceiptShareText(receipt));
-  const customerPhone = normalizeWhatsAppPhone(receipt.phone);
-  const url = customerPhone
-    ? `https://wa.me/${customerPhone}?text=${text}`
-    : `https://wa.me/?text=${text}`;
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
 function shareReceiptViaEmail(receipt) {
   const subject = encodeURIComponent(
     `Payment Receipt ${receipt.receiptNo}${settings.businessName ? ` - ${settings.businessName}` : ""}`,
   );
   const body = encodeURIComponent(buildReceiptShareText(receipt));
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
+}
+
+async function captureReceiptCanvas() {
+  const card = document.querySelector("#receiptPreview .receipt-card");
+  if (!card) {
+    throw new Error("Receipt preview not found");
+  }
+  if (typeof html2canvas === "undefined") {
+    throw new Error("Export library not loaded. Please refresh the page.");
+  }
+
+  card.classList.add("receipt-capture");
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  try {
+    return await html2canvas(card, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      logging: false,
+    });
+  } finally {
+    card.classList.remove("receipt-capture");
+  }
+}
+
+async function generateReceiptBlob(format) {
+  const canvas = await captureReceiptCanvas();
+
+  if (format === "jpg") {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("Could not create image"))),
+        "image/jpeg",
+        0.92,
+      );
+    });
+  }
+
+  if (typeof window.jspdf === "undefined") {
+    throw new Error("PDF library not loaded. Please refresh the page.");
+  }
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const imgData = canvas.toDataURL("image/jpeg", 0.92);
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 12;
+  const maxWidth = pageWidth - margin * 2;
+  const maxHeight = pageHeight - margin * 2;
+  let imgWidth = maxWidth;
+  let imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+  if (imgHeight > maxHeight) {
+    imgHeight = maxHeight;
+    imgWidth = (canvas.width * imgHeight) / canvas.height;
+  }
+
+  const x = (pageWidth - imgWidth) / 2;
+  pdf.addImage(imgData, "JPEG", x, margin, imgWidth, imgHeight);
+  return pdf.output("blob");
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function shareReceiptFile(receipt, format, channel) {
+  const ext = format === "pdf" ? "pdf" : "jpg";
+  const mimeType = format === "pdf" ? "application/pdf" : "image/jpeg";
+  const filename = `${receipt.receiptNo}.${ext}`;
+  const blob = await generateReceiptBlob(format);
+  const file = new File([blob], filename, { type: mimeType });
+  const shareText = `Payment receipt ${receipt.receiptNo} from ${settings.businessName || "Receipt Manager"}`;
+  const shareData = { files: [file], title: `Receipt ${receipt.receiptNo}`, text: shareText };
+
+  if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+    await navigator.share(shareData);
+    return;
+  }
+
+  downloadBlob(blob, filename);
+
+  if (channel === "whatsapp") {
+    const text = encodeURIComponent(`${shareText}\n\nPlease attach the downloaded ${ext.toUpperCase()} file.`);
+    const customerPhone = normalizeWhatsAppPhone(receipt.phone);
+    const url = customerPhone
+      ? `https://wa.me/${customerPhone}?text=${text}`
+      : `https://wa.me/?text=${text}`;
+    setTimeout(() => window.open(url, "_blank", "noopener,noreferrer"), 400);
+    alert(`Receipt saved as ${filename}. In WhatsApp, tap 📎 and attach the file from your Downloads.`);
+    return;
+  }
+
+  const subject = encodeURIComponent(
+    `Payment Receipt ${receipt.receiptNo}${settings.businessName ? ` - ${settings.businessName}` : ""}`,
+  );
+  const body = encodeURIComponent(
+    `${buildReceiptShareText(receipt)}\n\nPlease attach the downloaded file: ${filename}`,
+  );
+  setTimeout(() => {
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  }, 400);
+  alert(`Receipt saved as ${filename}. Attach it to your email before sending.`);
+}
+
+async function handleReceiptShare(receipt, channel, buttonEl, formatSelect) {
+  const format = formatSelect?.value || (channel === "email" ? "pdf" : "jpg");
+  const defaultLabel = channel === "whatsapp" ? "💬 WhatsApp" : "✉️ Email";
+
+  if (buttonEl) {
+    buttonEl.disabled = true;
+    buttonEl.textContent = "Generating...";
+  }
+
+  try {
+    await shareReceiptFile(receipt, format, channel);
+  } catch (error) {
+    console.error("Receipt share failed:", error);
+    alert("Could not share receipt: " + error.message);
+  } finally {
+    if (buttonEl) {
+      buttonEl.disabled = false;
+      buttonEl.textContent = defaultLabel;
+    }
+  }
 }
 
 // Render dynamic, premium receipt layout
@@ -929,6 +1052,13 @@ function showReceipt(r, containerId = "receiptPreview") {
         
         <div class="receipt-card-footer">
             ${footerMessageHtml}
+            <div class="share-format-row">
+              <label for="shareFormatSelect">Send as</label>
+              <select id="shareFormatSelect" class="share-format-select">
+                <option value="jpg">JPG Image</option>
+                <option value="pdf">PDF Document</option>
+              </select>
+            </div>
             <div class="receipt-share-actions">
               <button type="button" class="share-btn whatsapp-btn">💬 WhatsApp</button>
               <button type="button" class="share-btn email-btn">✉️ Email</button>
@@ -947,16 +1077,17 @@ function showReceipt(r, containerId = "receiptPreview") {
   }
 
   const whatsappBtn = preview.querySelector(".whatsapp-btn");
+  const formatSelect = preview.querySelector("#shareFormatSelect");
   if (whatsappBtn) {
     whatsappBtn.addEventListener("click", () => {
-      shareReceiptViaWhatsApp(r);
+      handleReceiptShare(r, "whatsapp", whatsappBtn, formatSelect);
     });
   }
 
   const emailBtn = preview.querySelector(".email-btn");
   if (emailBtn) {
     emailBtn.addEventListener("click", () => {
-      shareReceiptViaEmail(r);
+      handleReceiptShare(r, "email", emailBtn, formatSelect);
     });
   }
 }
