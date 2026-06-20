@@ -3,16 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Offline receipt manager for any business. Create, print, and share receipts." />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Receipts" />
 
     <title>Receipt Manager</title>
 
     <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <link rel="stylesheet" href="style.css" />
   </head>
 
   <body>
     <header>
-      <button class="hamburger" id="hamburgerBtn">
+      <button type="button" class="hamburger" id="hamburgerBtn" aria-label="Open menu" aria-expanded="false">
         <span></span>
         <span></span>
         <span></span>
@@ -21,7 +29,7 @@
         <h1>Receipt Manager</h1>
         <small>Offline Receipt System for Any Business</small>
       </div>
-      <button id="themeToggleBtn" class="theme-toggle" aria-label="Toggle Dark/Light Mode">
+      <button type="button" id="themeToggleBtn" class="theme-toggle" aria-label="Toggle Dark/Light Mode">
         <span class="theme-toggle-icon">🌓</span>
       </button>
     </header>
@@ -50,6 +58,8 @@
         >
       </nav>
     </aside>
+
+    <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
 
     <main>
       <!-- Dashboard Section -->
@@ -82,6 +92,20 @@
           >
             + Create Receipt
           </button>
+        </section>
+
+        <section class="card install-card" id="installCard" hidden>
+          <h2>Install App</h2>
+          <p class="install-card-text">
+            Add Receipt Manager to your home screen for quick access and offline use.
+          </p>
+          <button type="button" id="installAppBtn" class="install-app-btn">
+            📲 Install on Phone
+          </button>
+          <div id="iosInstallHelp" class="install-help hidden">
+            <strong>iPhone / iPad:</strong> Tap the Share button in Safari, then choose
+            <strong>Add to Home Screen</strong>.
+          </div>
         </section>
 
         <!-- Category Overview -->

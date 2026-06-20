@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Receipt Manager">
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <rect x="72" y="72" width="368" height="368" rx="24" fill="#ffffff"/>
+  <rect x="120" y="150" width="272" height="18" rx="9" fill="#16a34a"/>
+  <rect x="120" y="210" width="272" height="18" rx="9" fill="#16a34a"/>
+  <rect x="120" y="270" width="200" height="18" rx="9" fill="#16a34a"/>
+  <text x="256" y="390" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="72" font-weight="700" fill="#16a34a">RCP</text>
+</svg>

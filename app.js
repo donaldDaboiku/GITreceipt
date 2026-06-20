@@ -39,6 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 6. Register progressive web app service worker
   registerSW();
+  initInstallPrompt();
 
   // 7. Show default section
   showSection("dashboard");
@@ -405,39 +406,7 @@ function registerEvents() {
   }
 
   // Responsive Sidebar Controls
-  const hamburgerBtn = document.getElementById("hamburgerBtn");
-  const sidebar = document.getElementById("sidebar");
-  const navItems = document.querySelectorAll(".nav-item");
-
-  if (hamburgerBtn && sidebar) {
-    hamburgerBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      hamburgerBtn.classList.toggle("active");
-      sidebar.classList.toggle("active");
-    });
-
-    navItems.forEach((item) => {
-      item.addEventListener("click", function (e) {
-        e.preventDefault();
-        hamburgerBtn.classList.remove("active");
-        sidebar.classList.remove("active");
-
-        const section = this.getAttribute("data-section");
-        showSection(section);
-      });
-    });
-
-    document.addEventListener("click", function (e) {
-      if (
-        !sidebar.contains(e.target) &&
-        !hamburgerBtn.contains(e.target) &&
-        sidebar.classList.contains("active")
-      ) {
-        hamburgerBtn.classList.remove("active");
-        sidebar.classList.remove("active");
-      }
-    });
-  }
+  initMobileMenu();
 
   // Setup Event Delegation for dynamic receipt lists
   const receiptList = document.getElementById("receiptList");
@@ -487,7 +456,80 @@ function registerEvents() {
   });
 }
 
-// History Event Delegation Handler
+// Mobile-friendly sidebar menu (Android/iOS touch support)
+function initMobileMenu() {
+  const hamburgerBtn = document.getElementById("hamburgerBtn");
+  const sidebar = document.getElementById("sidebar");
+  const backdrop = document.getElementById("sidebarBackdrop");
+  const navItems = document.querySelectorAll(".nav-item");
+
+  if (!hamburgerBtn || !sidebar) return;
+
+  let lastToggleAt = 0;
+
+  function setMenuOpen(open) {
+    hamburgerBtn.classList.toggle("active", open);
+    sidebar.classList.toggle("active", open);
+    if (backdrop) backdrop.classList.toggle("active", open);
+    document.body.classList.toggle("menu-open", open);
+    hamburgerBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (backdrop) backdrop.setAttribute("aria-hidden", open ? "false" : "true");
+  }
+
+  function toggleMenu() {
+    const now = Date.now();
+    if (now - lastToggleAt < 300) return;
+    lastToggleAt = now;
+    setMenuOpen(!sidebar.classList.contains("active"));
+  }
+
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
+  bindTap(hamburgerBtn, (e) => {
+    e.stopPropagation();
+    toggleMenu();
+  });
+
+  if (backdrop) {
+    bindTap(backdrop, closeMenu);
+  }
+
+  navItems.forEach((item) => {
+    bindTap(item, (e) => {
+      e.preventDefault();
+      closeMenu();
+      const section = item.getAttribute("data-section");
+      showSection(section);
+    });
+  });
+}
+
+function bindTap(element, handler) {
+  let handled = false;
+
+  element.addEventListener(
+    "touchend",
+    (e) => {
+      e.preventDefault();
+      handled = true;
+      handler(e);
+      setTimeout(() => {
+        handled = false;
+      }, 400);
+    },
+    { passive: false },
+  );
+
+  element.addEventListener("click", (e) => {
+    if (handled) {
+      e.preventDefault();
+      return;
+    }
+    handler(e);
+  });
+}
 function handleHistoryClick(e) {
   const viewBtn = e.target.closest(".view-btn");
   const deleteBtn = e.target.closest(".delete-btn");
@@ -707,10 +749,10 @@ function buildReceiptShareText(receipt) {
 
   const lines = [
     "PAYMENT RECEIPT",
-    "================",
+    "================",  
     settings.businessName || "Receipt Manager",
     settings.address || "",
-    [settings.phone, settings.email].filter(Boolean).join(" | ""),
+    [settings.phone, settings.email].filter(Boolean).join(" | "),
     "",
     `Receipt No: ${receipt.receiptNo}`,
     `Customer: ${receipt.payer}`,
@@ -1333,6 +1375,75 @@ function registerSW() {
         console.error("Service Worker registration failed:", error),
       );
   }
+}
+
+function isAppInstalled() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+  );
+}
+
+function initInstallPrompt() {
+  const installCard = document.getElementById("installCard");
+  const installBtn = document.getElementById("installAppBtn");
+  const iosHelp = document.getElementById("iosInstallHelp");
+
+  if (!installCard || !installBtn) return;
+
+  if (isAppInstalled()) {
+    installCard.hidden = true;
+    return;
+  }
+
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isIosSafari = isIos && !window.navigator.standalone;
+
+  function showInstallCard(showIosHelp) {
+    installCard.hidden = false;
+    if (iosHelp) {
+      iosHelp.classList.toggle("hidden", !showIosHelp);
+    }
+  }
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    window.deferredInstallPrompt = e;
+    showInstallCard(false);
+  });
+
+  if (isIosSafari) {
+    showInstallCard(true);
+  }
+
+  bindTap(installBtn, async () => {
+    const promptEvent = window.deferredInstallPrompt;
+
+    if (promptEvent) {
+      promptEvent.prompt();
+      const choice = await promptEvent.userChoice;
+      if (choice.outcome === "accepted") {
+        installCard.hidden = true;
+      }
+      window.deferredInstallPrompt = null;
+      return;
+    }
+
+    if (isIosSafari) {
+      installCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (iosHelp) iosHelp.classList.remove("hidden");
+      return;
+    }
+
+    alert(
+      "To install: open this site in Chrome, tap the menu (⋮), then choose Install app or Add to Home screen.",
+    );
+  });
+
+  window.addEventListener("appinstalled", () => {
+    window.deferredInstallPrompt = null;
+    installCard.hidden = true;
+  });
 }
 
 // Sequential/Random receipt no generation using settings prefix

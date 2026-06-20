@@ -97,38 +97,48 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
+  position: sticky;
+  top: 0;
   box-shadow: var(--shadow-md);
-  z-index: 100;
+  z-index: 1100;
   height: 64px;
 }
 
 .hamburger {
   position: absolute;
-  left: 20px;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   color: white;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  width: 24px;
-  height: 18px;
-  justify-content: space-between;
-  padding: 0;
-  z-index: 1001;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 12px 10px;
+  z-index: 1102;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .hamburger span {
-  width: 100%;
+  display: block;
+  width: 22px;
   height: 2px;
   background: white;
   border-radius: 2px;
   transition: var(--transition-normal);
+  pointer-events: none;
 }
 
 .hamburger.active span:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
+  transform: rotate(45deg) translate(5px, 5px);
 }
 
 .hamburger.active span:nth-child(2) {
@@ -161,11 +171,17 @@ header {
 /* Theme Toggle Button */
 .theme-toggle {
   position: absolute;
-  right: 20px;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   background: transparent;
   border: none;
   font-size: 18px;
-  padding: 8px;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: var(--transition-fast);
@@ -173,35 +189,63 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1102;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .theme-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
-  transform: rotate(15deg);
 }
 
 .theme-toggle:active {
-  transform: scale(0.95);
+  transform: translateY(-50%) scale(0.95);
 }
 
 /* Sidebar Navigation */
 .sidebar {
   position: fixed;
-  left: -280px;
+  left: 0;
   top: 0;
   width: 280px;
   height: 100vh;
+  height: 100dvh;
   background: var(--bg-sidebar);
   box-shadow: var(--shadow-xl);
-  transition: left var(--transition-normal);
-  z-index: 999;
+  transition: transform var(--transition-normal);
+  transform: translateX(-100%);
+  z-index: 1110;
   padding-top: 80px;
   overflow-y: auto;
   border-right: 1px solid var(--border-color);
+  pointer-events: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sidebar.active {
-  left: 0;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 1090;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+}
+
+.sidebar-backdrop.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+body.menu-open {
+  overflow: hidden;
 }
 
 .nav-menu {
@@ -220,6 +264,9 @@ header {
   margin-bottom: 4px;
   font-weight: 500;
   font-size: 15px;
+  min-height: 48px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nav-item:hover {
@@ -241,6 +288,42 @@ main {
   margin: 0 auto;
   padding: 24px 16px;
   width: 100%;
+}
+
+.install-card {
+  border: 1.5px dashed var(--primary);
+  background: var(--primary-light);
+}
+
+.install-card-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.install-app-btn {
+  width: 100%;
+  background: var(--primary);
+  color: white;
+  margin-bottom: 10px;
+}
+
+.install-app-btn:hover {
+  background: var(--primary-hover);
+}
+
+.install-help {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  line-height: 1.5;
+}
+
+.install-help.hidden {
+  display: none;
 }
 
 /* Cards & Containers */
@@ -420,12 +503,15 @@ textarea {
   object-fit: contain;
   display: none;
 }
-  max-width: 200px;
-  object-fit: contain;
-  border-radius: var(--radius-sm);
-}
 
 /* Buttons Base & Overrides */
+button,
+input[type="submit"],
+.back-dashboard-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 button {
   font-family: var(--font-body);
   font-weight: 600;

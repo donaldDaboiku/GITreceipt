@@ -1,17 +1,30 @@
-const CACHE = "receipt-v4";
+const CACHE = "receipt-v6";
 
 const FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
-  "./db.js"
+  "./db.js",
+  "./manifest.json",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./icons/icon.svg"
 ];
 
 self.addEventListener("install", e => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE)
       .then(cache => cache.addAll(FILES))
+  );
+});
+
+self.addEventListener("activate", e => {
+  e.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))),
+    ).then(() => self.clients.claim()),
   );
 });
 
